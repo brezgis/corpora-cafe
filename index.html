@@ -28,6 +28,12 @@
       cafe:drink   { detail: { vessel, gulped } }
       cafe:fridge  { detail: { open } }
       cafe:garnish { detail: { kind } }
+      cafe:serve   { detail: { recipe, met, of, tip } }
+
+  Customers: an order ticket (bottom-left, on the counter front) asks for a
+  drink in linguistic terms, checks the focused cup live, and takes it when
+  the cup is dragged onto it. Tips + discovered recipes persist in
+  localStorage ("corpora-cafe:v1"); the menu board lists the recipes.
 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -63,6 +69,7 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
   .pixel-cafe .pc-stage { position: relative; min-width: 100%; margin: 0; }
   .pixel-cafe canvas {
@@ -148,6 +155,75 @@
   .pc-panel ul { margin: 4px 0; padding-left: 18px; }
   .pc-panel a { color: #c2255c; }
   .pc-panel p { margin: 6px 0; }
+  .pc-menu-list { margin: 8px 0 0; padding-left: 22px; }
+  .pc-menu-list li { margin: 0 0 8px; color: #8b7f96; }
+  .pc-menu-list li.pc-found { color: #3b2a4a; }
+  .pc-menu-list li.pc-found b { color: #c2255c; }
+  .pc-menu-ask { font-style: italic; }
+  .pc-menu-needs { font-size: 11px; opacity: .8; }
+
+  /* the order ticket sits on the counter's tiled front, below the play area */
+  .pc-order {
+    position: fixed; left: 12px; bottom: 12px; z-index: 30;
+    width: min(340px, calc(100vw - 24px)); max-height: 34vh; overflow-y: auto;
+    box-sizing: border-box;
+    background: #fffdfa; color: #3b2a4a;
+    border: 3px solid #3b2a4a; box-shadow: 3px 3px 0 rgba(59,42,74,.35);
+    padding: 6px 9px 7px;
+    font: 12px/1.3 "Courier New", monospace;
+    transition: transform .15s, background-color .15s;
+  }
+  .pc-order.pc-order-hot { background: #f7c8d8; transform: translateY(-3px); }
+  .pc-order-head { display: flex; align-items: center; gap: 7px; }
+  .pc-order-head canvas {
+    width: 26px; height: 26px; flex: none;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    background: #fdf6df; border: 2px solid #3b2a4a;
+  }
+  .pc-who { flex: 1; font-size: 12px; }
+  .pc-tips {
+    flex: none; padding: 2px 6px; border: 2px solid #3b2a4a;
+    background: #ffe98a; font-weight: bold;
+  }
+  .pc-mini, .pc-order-btns button {
+    font: bold 12px/1 "Courier New", monospace; color: #3b2a4a; cursor: pointer;
+    background: #fffdfa; border: 2px solid #3b2a4a; padding: 4px 7px;
+  }
+  .pc-mini { flex: none; padding: 2px 7px; }
+  .pc-mini:hover, .pc-order-btns button:hover:not(:disabled) { background: #f7c8d8; }
+  .pc-order-btns button:disabled { opacity: .45; cursor: default; }
+  .pc-ask { margin: 4px 0 3px; font-weight: bold; color: #c2255c; }
+  .pc-needs { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-wrap: wrap; gap: 3px 10px; }
+  .pc-needs li { color: #8b7f96; }
+  .pc-needs li.pc-ok { color: #2f7d3f; font-weight: bold; }
+  .pc-order-foot { margin: 2px 0 5px; font-size: 11px; opacity: .8; }
+  .pc-order-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pc-order-done .pc-ask { color: #3b2a4a; font-weight: normal; font-style: italic; }
+  .pc-order-chip { position: fixed; left: 12px; bottom: 12px; z-index: 30; }
+  .pc-order-compact .pc-order-foot, .pc-order-compact canvas { display: none; }
+  .pc-order-compact .pc-ask { margin: 2px 0; }
+  .pc-order-compact .pc-order-btns button { padding: 2px 5px; font-size: 11px; }
+  .pc-toast {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 50;
+    max-width: calc(100vw - 32px); box-sizing: border-box;
+    padding: 8px 14px; background: #ffe98a; color: #3b2a4a;
+    border: 3px solid #3b2a4a; box-shadow: 3px 3px 0 rgba(59,42,74,.35);
+    font: bold 13px/1.3 "Courier New", monospace; pointer-events: none;
+  }
+  .pc-toast-go { animation: pc-toast 4.2s ease both; }
+  @keyframes pc-toast { 0% { opacity: 0; transform: translate(-50%, -8px); } 8%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+  @media (max-width: 640px) {
+    /* phones: the chips row sits on the bottom edge, the ticket just above it */
+    .pc-order { bottom: 58px; max-height: 30vh; font-size: 11px; padding: 6px 8px; }
+    .pc-order-head canvas { width: 24px; height: 24px; }
+    .pc-order-chip { bottom: 58px; }
+    .pc-chip { padding: 8px 8px; font-size: 11px; }
+    .pc-ui { right: 8px; gap: 5px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pc-toast-go { animation: none; }
+    .pc-order { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -161,9 +237,33 @@
   </div>
 </div>
 
+<section id="pc-order" class="pc-order" aria-live="polite" aria-label="Order ticket">
+  <div class="pc-order-head">
+    <canvas id="pc-avatar" width="16" height="16" aria-hidden="true"></canvas>
+    <b id="pc-who" class="pc-who">a customer would like</b>
+    <span id="pc-tips" class="pc-tips" title="tip jar">0¢</span>
+    <button id="pc-order-min" class="pc-mini" type="button" aria-label="Tuck the order ticket away">–</button>
+  </div>
+  <p id="pc-ask" class="pc-ask"></p>
+  <ul id="pc-needs" class="pc-needs"></ul>
+  <p id="pc-order-foot" class="pc-order-foot"></p>
+  <div class="pc-order-btns">
+    <button id="pc-serve" type="button">serve</button>
+    <button id="pc-skip" type="button">another customer</button>
+  </div>
+</section>
+<button id="pc-order-chip" class="pc-chip pc-order-chip" type="button" hidden>☕ order</button>
+<div id="pc-toast" class="pc-toast" role="status" hidden></div>
 <div class="pc-ui">
+  <button id="pc-menu" class="pc-chip" type="button" aria-expanded="false">☰ menu</button>
   <button id="pc-jazz" class="pc-chip" type="button" aria-pressed="false">♪ jazz: off</button>
   <button id="pc-info" class="pc-chip" type="button" aria-expanded="false">ⓘ about</button>
+</div>
+<div id="pc-menu-panel" class="pc-panel" role="dialog" aria-label="Menu board" hidden>
+  <h3>menu board</h3>
+  <p>Customers order in linguistic terms. Serve a perfect one (or drink one
+  yourself) and it gets its name on the board.</p>
+  <ol class="pc-menu-list"></ol>
 </div>
 <div id="pc-about" class="pc-panel" role="dialog" aria-label="About corpora-cafe" hidden>
   <h3>corpora-cafe ☕</h3>
@@ -172,15 +272,15 @@
   Mop your spills.</p>
   <h4>on tap</h4>
   <ul>
-    <li>BROWN — <a href="https://en.wikipedia.org/wiki/Brown_Corpus" target="_blank" rel="noopener">the Brown Corpus</a> (1961), the original million-word corpus of American English</li>
-    <li>COCA — in the spirit of the <a href="https://www.english-corpora.org/coca/" target="_blank" rel="noopener">Corpus of Contemporary American English</a></li>
-    <li>SWITCHBOARD — <a href="https://catalog.ldc.upenn.edu/LDC97S62" target="_blank" rel="noopener">the Switchboard corpus</a> of telephone conversation, uh, you know [laughter]</li>
+    <li>BROWN — <a href="https://en.wikipedia.org/wiki/Brown_Corpus" target="_blank" rel="noopener">the Brown Corpus</a> (1961), the original million-word corpus of American English: a hundred real sentences across all fifteen genres</li>
+    <li>COCA — in the spirit of the <a href="https://www.english-corpora.org/coca/" target="_blank" rel="noopener">Corpus of Contemporary American English</a> (original lines in its eight genres; COCA itself can't be redistributed)</li>
+    <li>SWITCHBOARD — in the style of <a href="https://catalog.ldc.upenn.edu/LDC97S62" target="_blank" rel="noopener">the Switchboard corpus</a> of telephone conversation, uh, you know [laughter]</li>
     <li>WORDNET — <a href="https://wordnet.princeton.edu/" target="_blank" rel="noopener">Princeton WordNet</a> glosses</li>
-    <li>πUP — <a href="https://en.wikipedia.org/wiki/Pi" target="_blank" rel="noopener">the digits of π</a>, a corpus that never repeats itself</li>
+    <li>πUP — <a href="https://en.wikipedia.org/wiki/Pi" target="_blank" rel="noopener">the digits of π</a>, computed live with Machin's formula: a corpus that never repeats itself</li>
     <li>MAGIC MOJI — <a href="https://en.wikipedia.org/wiki/Kaomoji" target="_blank" rel="noopener">kaomoji</a>, rainbow-fresh (ノ◕ヮ◕)ノ*:・ﾟ✧</li>
-    <li>espresso — Dante, <a href="https://en.wikipedia.org/wiki/Divine_Comedy" target="_blank" rel="noopener">Divina Commedia</a>, pulled hot</li>
+    <li>espresso — Dante, <a href="https://en.wikipedia.org/wiki/Divine_Comedy" target="_blank" rel="noopener">Divina Commedia</a>, pulled hot: all of Inferno I, shot after shot, then a few famous tercets</li>
     <li>teas — the <a href="https://www.un.org/en/about-us/universal-declaration-of-human-rights" target="_blank" rel="noopener">Universal Declaration of Human Rights</a> in French, Japanese and Spanish — the classic multilingual NLP corpus</li>
-    <li>milks — <a href="https://en.wikipedia.org/wiki/Lorem_ipsum" target="_blank" rel="noopener">lorem ipsum</a>, one sentence per carton</li>
+    <li>milks — <a href="https://en.wikipedia.org/wiki/Lorem_ipsum" target="_blank" rel="noopener">lorem ipsum</a> (MILK), the real Cicero it came from, <i>De finibus</i> 1.10.32–33 (OAT, SOY), and Rackham's 1914 translation (UBE)</li>
     <li>whip — three words of <a href="https://en.wikipedia.org/wiki/Whip_It_(Devo_song)" target="_blank" rel="noopener">Devo</a>, floats as a cap</li>
   </ul>
   <h4>the room</h4>
@@ -188,6 +288,10 @@
     <li>backsplash — <a href="https://www.metmuseum.org/art/collection/search/452854" target="_blank" rel="noopener">Tile with 'Saz' Leaf Design</a>, Iznik, ca. 1545–55, The Met (public domain)</li>
     <li>jazz — generated live in your browser, no recordings were harmed</li>
   </ul>
+  <h4>customers</h4>
+  <p>Linguists drop by and order in linguistic terms. The ticket checks the
+  cup you're working on; drag it onto the ticket to serve. Every drink gets a
+  tip; perfect ones go up on the ☰ menu board.</p>
   <p style="opacity:.7">a <a href="https://brezgis.github.io" target="_blank" rel="noopener">sharabara</a> production ♡</p>
 </div>
 
@@ -349,34 +453,508 @@
   }
 
   // ---------------- corpora (linguistics corpora, per the boss) ----------------
+  // Every dispenser holds many sentences. Each press keeps pouring from where the
+  // last one stopped; sampled corpora shuffle their sentences (no repeat until the
+  // whole bag has poured), continuous texts (Dante, the UDHR, Cicero) run in order.
+  var CJK = /[\u3040-\u30ff\u3400-\u9fff]/;
+  var JA_SEG = null;
+  try { if (window.Intl && Intl.Segmenter) JA_SEG = new Intl.Segmenter("ja", { granularity: "word" }); } catch (e) {}
   function chunkWords(text) {
-    if (/\s/.test(text.trim())) return text.split(/\s+/).filter(Boolean);
-    var out = [], i = 0;                    // Japanese has no spaces: chunk it
-    while (i < text.length) { var n = 2 + Math.floor(Math.random() * 2); out.push(text.slice(i, i + n)); i += n; }
+    var out = [];
+    String(text).trim().split(/\s+/).forEach(function (piece) {
+      if (!piece) return;
+      if (!CJK.test(piece) || piece.length <= 3) { out.push(piece); return; }
+      if (JA_SEG) {                           // Japanese has no spaces: real word segmentation
+        Array.from(JA_SEG.segment(piece)).forEach(function (s) {
+          if (!s.isWordLike && out.length) out[out.length - 1] += s.segment;   // punctuation clings to its word
+          else out.push(s.segment);
+        });
+        return;
+      }
+      for (var i = 0; i < piece.length; ) {   // fallback: bite-sized chunks
+        var n = 2 + ((i * 7) % 2); out.push(piece.slice(i, i + n)); i += n;
+      }
+    });
     return out;
   }
-  function corpus(color, text) { return { color: color, words: chunkWords(text), idx: 0 }; }
+  function corpus(color, sents, order) {
+    var words = [];
+    sents.forEach(function (s) { words = words.concat(chunkWords(s)); });
+    return { color: color, sents: sents, order: order || "shuffle", words: words,
+             queue: [], bag: [], si: 0 };
+  }
+  function nextWord(c) {
+    if (c.gen) return c.gen();
+    while (!c.queue.length) {
+      var s;
+      if (c.order === "seq") { s = c.sents[c.si % c.sents.length]; c.si++; }
+      else {
+        if (!c.bag.length) {                    // a fresh shuffled bag: every sentence once
+          c.bag = c.sents.slice();
+          for (var i = c.bag.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1)), tmp = c.bag[i]; c.bag[i] = c.bag[j]; c.bag[j] = tmp;
+          }
+        }
+        s = c.bag.pop();
+      }
+      c.queue = chunkWords(s);
+    }
+    return c.queue.shift();
+  }
+
+  // COCA is licensed and cannot be redistributed. These are NOT quotations:
+  // they are short original lines written to sample its eight genres (spoken
+  // news talk, fiction, magazine, newspaper, academic, blogs, web, TV/movie
+  // subtitles) in their usual register.
+  var TEXT_COCA = [
+    "I mean, honestly, the whole thing was kind of a big deal, and nobody could say exactly why.",
+    "Well, I think what we're seeing right now is a lot of people who just feel like nobody is listening.",
+    "And that's the question tonight: who's going to pay for all of this?",
+    "Let me stop you right there, because I think that's a really important point.",
+    "We're going to take a quick break, and when we come back, what this means for your wallet.",
+    "Look, at the end of the day, families want good schools and safe streets. It's not complicated.",
+    "Joining us now from Denver is our correspondent. Good morning.",
+    "She set the mug down on the windowsill and watched the snow come in sideways across the parking lot.",
+    "He didn't answer right away, which was an answer in itself.",
+    "The kitchen still smelled like burnt coffee and the lemon cleaner her mother swore by.",
+    "\"You're late,\" Nora said, without looking up from the crossword.",
+    "Somewhere down the hall a phone kept ringing, and nobody moved to get it.",
+    "By the time they reached the lake, the light had gone soft and gold, and nobody wanted to talk anymore.",
+    "Ten minutes a day is all it takes to build a habit that actually sticks.",
+    "The secret to better cold brew? Start with a coarser grind than you think you need.",
+    "These five small changes can make your kitchen feel twice as big.",
+    "Plan ahead: the best campsites book up months in advance, especially on holiday weekends.",
+    "It's the kind of neighborhood place where the servers remember your order and your dog's name.",
+    "City officials said Tuesday that the project would be delayed until at least next spring.",
+    "The measure passed the state Senate 27 to 12 and now heads to the governor's desk.",
+    "Enrollment at the district's elementary schools has dropped for the third year in a row.",
+    "The company reported quarterly earnings that beat analysts' expectations, sending shares up 4 percent.",
+    "Local growers say the late frost could cut this year's apple harvest by as much as half.",
+    "These findings suggest that the relationship between exposure and outcome is moderated by socioeconomic status.",
+    "Participants (N = 214) completed a brief online survey measuring attitudes toward remote work.",
+    "Further research is needed to determine whether these effects persist over time.",
+    "In this article, we argue that frequency alone cannot account for the observed patterns of variation.",
+    "Results were statistically significant across all three conditions.",
+    "Okay so I finally tried the recipe everyone's been talking about and... wow.",
+    "Not gonna lie, this took me way longer than it should have.",
+    "Update: a lot of you asked what paint I used, so I added a link at the bottom!",
+    "Anyway, that's my two cents. Let me know what you think in the comments.",
+    "Free shipping on orders over $35. Terms and conditions apply.",
+    "Click here to read the full story.",
+    "Wait, wait, wait. You're telling me you never actually called her?",
+    "Hey. Hey. Look at me. We're gonna figure this out, okay?",
+    "Oh, come on! That was one time!",
+    "I'm not saying it's a good idea. I'm saying it's our only idea.",
+    "Thanks for having me. It's great to be here."
+  ];
+
+  // The Brown Corpus (Francis & Kučera, 1961; redistribution permitted per the
+  // NLTK distribution's README). Real sentences, sampled across its 15 genres
+  // from NLTK's copy, opening with the corpus's famous first sentence.
+  var TEXT_BROWN = [
+    // news · editorial · reviews · religion · hobbies · lore · belles_lettres · government · learned · fiction · mystery · science_fiction · adventure · romance · humor
+    "The Fulton County Grand Jury said Friday an investigation of Atlanta's recent primary election produced \"no evidence\" that any irregularities took place.",
+    "A feature of the party will be a presentation by Welton Becket, center architect, of color slides and renderings of the three-building complex.",
+    "But it is apparent that no acceptable formula has been found to prevent such a possibility.",
+    "The United States must plan to absorb the exported goods of the country, at what he termed a \"social cost\".",
+    "And it turned out to be more of a family affair than expected.",
+    "The Burkes, who now live in Kankakee, are telling friends of the engagement.",
+    "\"I am taking the position that the contract was clearly violated\", Berger said.",
+    "\"Everything went real smooth\", the sheriff said.",
+    "But the price was the silence of the grave for all criticism or opposition.",
+    "They do our country great harm by such actions.",
+    "If they also defeat the school bill, the GOP task force won't have much research to do.",
+    "There is Karl Marx, of course, buried in London.",
+    "Create a free market here, give us a sound, debt-free money system, and we'll compete with anyone, Europe and Asia combined.",
+    "Maybe he can clean out the white elephants in some of the city departments such as welfare, DPW and sanitation.",
+    "What is in doubt as the free Germans and their allies consider the voting trends is the nature of the coalition that will result.",
+    "In this same society, the plain citizen can with an average of only one-fifth his income buy more calories than he can consume.",
+    "But Mr. Bragg is a remarkably gifted conductor, and the results he has produced with his boys are generally superior.",
+    "Remember how by a series of booking absurdities Chicago missed seeing the Bolshoi Ballet?",
+    "This is an exact description of what Mr. Sansom does.",
+    "In any given period piece the costumes, bric-a-brac, vehicles, and decor, bear the stamp of unimpeachable authenticity.",
+    "John Heffernan, playing Larry Larkin, the cartoonist, carries the show in marvelous fashion.",
+    "Arthur Gordon comes once a month all the way from Georgia.",
+    "At any rate, it shows us how immaterial we are.",
+    "But whether this was accompanied by a general lowering of the moral life of the membership we do not know.",
+    "Test it, try it, and if it works, accept it as a guiding principle.",
+    "This is the answer to the problem of \"membership delinquency\".",
+    "The current regime of President Mohammad Ayub Khan is determinedly secular.",
+    "Yet the fact remains that such institutions do set men at odds with their fellows.",
+    "As the generations move on, clothes become more suitable for the enjoyment of outdoor sports.",
+    "Make sure you have minimum age and time-on-the-job requirements tied into your pension plan.",
+    "Restrict large glass areas to the north and south sides of the house.",
+    "With powerplants such as these, vertical takeoff and landing combat aircraft could be built.",
+    "He can diagnose detachment of the retina where conventional methods indicate blindness due to glaucoma.",
+    "We have already witnessed great changes through mergers and acquisitions in the food industry -- at both the manufacturing and retail ends.",
+    "Opera lovers will be interested to learn that this church was the scene for the first act of Tosca.",
+    "Soybean flour, grits, flakes, \"milk\", and curd can be bought in the United States.",
+    "The Indians were not impressed and held to the Carolina traders, who swarmed over the country, almost to the Mississippi.",
+    "\"Pulley Bey insisted that she bestow her favors on him\", the friend continued.",
+    "The charge: violation of the California Medical Practices Act by practicing medicine without a license and selling misbranded drugs.",
+    "It consists of a series of pipes and a pressure-measuring chamber which record the rise and fall of the water surface.",
+    "Maple syrup is made by the children in the woods on the school grounds.",
+    "Is anything being done to increase our margin of safety?",
+    "He invited Lady Sybil, Lord Thomson, Bechhofer Roberts, and a half dozen others.",
+    "The creator trusts his intuition to lead him along a path that has internal validity because it mirrors the reality of his experience.",
+    "I told him no, that I had had a very happy childhood.",
+    "Wolfe refuses to ever leave his own house, and spends most of his time drinking beer and playing with orchids.",
+    "I managed to do this by the time the great A.B. returned to the place where he last had seen the fierce nihilist.",
+    "Our meeting took place in May, 1961, during one of the Maestro's stop-overs in New York, before he left for Europe.",
+    "The walls are held together with metal ties placed in the wet mortar as the walls are built.",
+    "Both would start their new fiscal year on July 1.",
+    "A minor child is allowed A personal exemption of $600 on his own return regardless of how much money he may earn.",
+    "This has been attributed to helium film flow in the vapor pressure thermometer.",
+    "If they are used, the walls and roof should be 10 inches thick to give the same protection as the 8-inch solid concrete blocks.",
+    "This process neither satisfied the urgent production schedules nor Mr. Brown's imagination of the possibilities in the situation.",
+    "But it took the pictures of the Migs and the T-34 tanks to do the job.",
+    "Although the matter has not been unequivocally demonstrated, the available data show that micelles in themselves do not contribute significantly to the detergency process.",
+    "Boris' first entrance seems almost a footnote to the splendor of the Coronation Scene, with its dazzling confusion of tonalities.",
+    "Some of them were then covered with a drop of Af in a moist chamber at 24-degrees for 30 - 40 minutes.",
+    "Up to this point stress has been placed on roleplaying in terms of individuals.",
+    "The former is intended to decrease the amount of work necessary to extend dictionary coverage.",
+    "No general installation should be made until a model installation has been proved and its maximum capability determined.",
+    "This is simply a confession of intellectual sterility spruced up to look virtuous.",
+    "Three Union guards appeared, carrying their rifles at ready.",
+    "And then the questions came, eager, interested questions, and many compliments on his having overcome his infirmity.",
+    "This was one of the Irish women who had built their own huts down near the river.",
+    "He drove sensual patterns off, carefully shaving his long upper lip.",
+    "It was a part so familiar to him that he did not bother to think about it any more.",
+    "Hans had laid steaming towels over the kid's chest and stomach.",
+    "I got a quick look at their faces as we went past.",
+    "Took me 19 years to become Chief of our three man police force.",
+    "He hurried across to the courthouse and caught the sheriff just as he was leaving.",
+    "The Hotel King Arthur across the street provided almost twice as many problems.",
+    "Carruthers crossed the room to a metal door with an open grillework in the top half.",
+    "Doc Abel was busy up front with some of his live patients.",
+    "He was holding the piece of lead pipe out to me.",
+    "Insects there were on the world, but they were frozen solid during the night, only to revive and thaw in the morning sun.",
+    "There were nine qualified scouts sitting around collecting base pay the day Helva was commissioned.",
+    "He wondered how anyone could have the good luck to visit a planet as nice as this.",
+    "\"Why, what a lovely voice you have\", said one of the female visitors.",
+    "\"No, it isn't\", Ekstrohm said.",
+    "So, forgive me, Sigmen, for the contrary-to-reality thoughts!",
+    "B'dikkat grudgingly agreed, but he did not come out of the doorway.",
+    "Russ gave him a brutal thrust that tumbled him over flat on his stomach.",
+    "\"In back, buddy\", the driver said to me.",
+    "Small rooms, probably for cards, opened off on either side.",
+    "Lips pursed mournfully, he stared down at its crazily sagging left side.",
+    "\"But to take him and leave his mother behind is not good\".",
+    "Beaming idiotically, he pooched out his lips and attempted to kiss her.",
+    "I decided to see no more of the clerk until the processing of my papers was completed.",
+    "Together with her mother, both of them tense with worry lest things should somehow go wrong.",
+    "Keep him back, if you must tell me what to do.",
+    "Then he fled, not waiting to see if she minded him or took notice of his cry.",
+    "Unfortunately it turned out to be me, but I wouldn't quite put it that way to the boss.",
+    "She had been sent to the wrong place for duty.",
+    "She was finally at rest in truth, of her own proud free choice.",
+    "And how on earth did I ever get this letter anyway?",
+    "\"You and I have fallen out of literature into politics\", Moreland observed.",
+    "One could hear a very faint, ladylike sigh of relief.",
+    "I never thought I'd live to hear people chuckle and say \"zounds\"!",
+    "I merely draw an etymological distinction, hoping that specialists and busy people like you will welcome such precision in a layman.",
+    "Nobody liked to hire him because you never could tell when he was going to be taken drunk.",
+    "One day, the children had wanted to get up onto General Burnside's horse.",
+    "Then, I remembered that the girls had had a banana for dessert every day for the last week."
+  ];
+
+  // Switchboard (LDC97S62) is LDC-licensed, so these are NOT transcript
+  // quotations: they are original lines written in its transcription
+  // conventions (lowercase, A:/B: turns, uh, uh-huh, [laughter], [noise],
+  // restarts) on its real assigned topics: pets, recycling, music, fishing,
+  // weather, budgets, elder care, credit cards, cooking, movies, exercise,
+  // jury trials, gardening, child care, vacations.
+  var TEXT_SWBD = [
+    "A: so do you have any uh pets at home B: well [laughter] we we have a poodle and uh you know she's about seven now A: uh-huh",
+    "B: and she's pretty much the boss of the house [laughter] A: yeah i know how that goes",
+    "A: okay so uh the topic is recycling B: right A: um do you guys do much recycling where you live",
+    "B: well we we have the curbside pickup now A: uh-huh B: they give you the little blue bins [noise]",
+    "A: i think it's it's mostly the newspapers for us you know B: yeah A: and the aluminum cans",
+    "B: so what kind of music do you like A: oh gosh uh pretty much anything except um maybe opera [laughter]",
+    "A: we went fishing up at the lake last summer and uh B: uh-huh A: didn't catch a thing [laughter]",
+    "B: i'm in texas so the weather here is uh it's either hot or it's hotter [laughter]",
+    "A: do you do a budget i mean like a a household budget B: um we kind of try to A: yeah B: we try",
+    "A: my mother-in-law lived with us for a while and it was uh it was an adjustment you know B: oh i bet",
+    "B: we we use the credit cards mostly for gas A: uh-huh B: and then try to pay them off every month",
+    "A: i like to cook but i don't really have the time anymore B: right right A: so it's a lot of casseroles [laughter]",
+    "B: have you seen any good movies lately A: um let's see the last one we saw was uh oh what was it called",
+    "A: i do a little bit of exercise like walking mostly B: yeah A: in the mornings before it gets too hot",
+    "A: so uh how do you feel about the uh the jury system B: oh boy [laughter] um",
+    "A: we planted tomatoes this year B: oh did you A: and the squirrels got every single one [laughter]",
+    "B: i was gonna say the the kids are old enough now that uh they help out some",
+    "A: do you work outside the home B: uh yes i'm a i'm a teacher A: oh what grade B: second",
+    "B: it's it's hard to find good child care you know A: oh it is B: especially for the little ones",
+    "B: we drove up to colorado one time and uh it snowed in june can you believe that A: [laughter] no",
+    "A: uh-huh B: yeah A: right B: exactly A: mm-hmm",
+    "A: i i guess i never really thought about it that way B: yeah it's uh it's kind of interesting",
+    "B: where where are you calling from A: uh raleigh north carolina B: oh okay",
+    "A: th- the thing is you know you can't please everybody B: no you can't [laughter]",
+    "B: well it was nice talking to you A: yeah you too B: okay bye-bye A: bye"
+  ];
+
+  // Princeton WordNet 3.0 (the WordNet License permits redistribution).
+  // Synsets, glosses and a few hypernym chains, transcribed; wording may
+  // differ very slightly from the database.
+  var TEXT_WORDNET = [
+    "cat, true cat (feline mammal usually having thick soft fur and no ability to roar) => feline, felid => carnivore => placental => mammal",
+    "dog, domestic dog, Canis familiaris (a member of the genus Canis (probably descended from the common wolf) that has been domesticated by man since prehistoric times; occurs in many breeds) => canine, canid",
+    "coffee, java (a beverage consisting of an infusion of ground coffee beans) => beverage, drink, drinkable, potable",
+    "espresso (strong black coffee brewed by forcing hot water under pressure through finely ground coffee beans) => coffee, java",
+    "tea (a beverage made by steeping tea leaves in water) => beverage",
+    "milk (a white nutritious liquid secreted by mammals and used as food by human beings) => dairy product",
+    "cup (a small open container usually used for drinking; usually has a handle) => container",
+    "sugar, refined sugar (a white crystalline carbohydrate used as a sweetener and preservative)",
+    "ice, water ice (water frozen in the solid state)",
+    "steam (water at boiling temperature diffused in the atmosphere)",
+    "corpus (a collection of writings) => collection, aggregation, accumulation, assemblage",
+    "language, linguistic communication (a systematic means of communicating by the use of sounds or conventional symbols) => communication",
+    "word (a unit of language that native speakers can identify)",
+    "linguistics (the scientific study of language)",
+    "syntax, sentence structure, phrase structure (the grammatical arrangement of words in sentences)",
+    "semantics (the study of language meaning)",
+    "morpheme (minimal meaningful language unit; it cannot be divided into smaller meaningful units)",
+    "phoneme (one of a small set of speech sounds that are distinguished by the speakers of a particular language)",
+    "noun (a content word that can be used to refer to a person, place, thing, quality, or action)",
+    "verb (a content word that denotes an action, occurrence, or state of existence)",
+    "sentence (a string of words satisfying the grammatical rules of a language)",
+    "dictionary, lexicon (a reference book containing an alphabetical list of words with information about them)",
+    "ambiguity (an expression whose meaning cannot be determined from its context)",
+    "hypernym, superordinate, superordinate word (a word that is more generic than a given word)",
+    "hyponym, subordinate, subordinate word (a word that is more specific than a given word)",
+    "frog, toad, toad frog, anuran, batrachian, salientian (any of various tailless stout-bodied amphibians with long hind limbs for leaping; semiaquatic and terrestrial species) => amphibian",
+    "rain, rainfall (water falling in drops from vapor condensed in the atmosphere)",
+    "tree (a tall perennial woody plant having a main trunk and branches forming a distinct elevated crown; includes both gymnosperms and angiosperms)",
+    "book (a written work or composition that has been published (printed on pages bound together))",
+    "moon (the natural satellite of the Earth)",
+    "chair (a seat for one person, with a support for the back)",
+    "window (a framework of wood or metal that contains a glass windowpane and is built into a wall or roof to admit light or air)",
+    "friend (a person you know well and regard with affection and trust)",
+    "music (an artistic form of auditory communication incorporating instrumental or vocal tones in a structured and continuous manner)",
+    "dream, dreaming (a series of mental images and emotions occurring during sleep)",
+    "bread, breadstuff, staff of life (food made from dough of flour or meal and usually raised with yeast or baking powder and then baked)",
+    "cake (baked goods made from or based on a mixture of flour, sugar, eggs, and fat)",
+    "kitten, kitty (young domestic cat)",
+    "ocean (a large body of water constituting a principal part of the hydrosphere)",
+    "love (a strong positive emotion of regard and affection)",
+    "happy (enjoying or showing or marked by joy or pleasure)",
+    "run (move fast by using one's feet, with one foot off the ground at any given time)"
+  ];
+
+  // Dante, Divina Commedia (public domain; Petrocchi text): all of Inferno I,
+  // then a few famous landings: Inferno III, V, XXVI, XXXIV, Purgatorio I,
+  // and the last lines of Paradiso. Pulled in order, shot after shot.
+  var TEXT_DANTE = [
+    "Nel mezzo del cammin di nostra vita mi ritrovai per una selva oscura, ché la diritta via era smarrita.",
+    "Ahi quanto a dir qual era è cosa dura esta selva selvaggia e aspra e forte che nel pensier rinova la paura!",
+    "Tant' è amara che poco è più morte; ma per trattar del ben ch'i' vi trovai, dirò de l'altre cose ch'i' v'ho scorte.",
+    "Io non so ben ridir com' i' v'intrai, tant' era pien di sonno a quel punto che la verace via abbandonai.",
+    "Ma poi ch'i' fui al piè d'un colle giunto, là dove terminava quella valle che m'avea di paura il cor compunto,",
+    "guardai in alto e vidi le sue spalle vestite già de' raggi del pianeta che mena dritto altrui per ogne calle.",
+    "Allor fu la paura un poco queta, che nel lago del cor m'era durata la notte ch'i' passai con tanta pieta.",
+    "E come quei che con lena affannata, uscito fuor del pelago a la riva, si volge a l'acqua perigliosa e guata,",
+    "così l'animo mio, ch'ancor fuggiva, si volse a retro a rimirar lo passo che non lasciò già mai persona viva.",
+    "Poi ch'èi posato un poco il corpo lasso, ripresi via per la piaggia diserta, sì che 'l piè fermo sempre era 'l più basso.",
+    "Ed ecco, quasi al cominciar de l'erta, una lonza leggera e presta molto, che di pel macolato era coverta;",
+    "e non mi si partia dinanzi al volto, anzi 'mpediva tanto il mio cammino, ch'i' fui per ritornar più volte vòlto.",
+    "Temp' era dal principio del mattino, e 'l sol montava 'n sù con quelle stelle ch'eran con lui quando l'amor divino",
+    "mosse di prima quelle cose belle; sì ch'a bene sperar m'era cagione di quella fiera a la gaetta pelle",
+    "l'ora del tempo e la dolce stagione; ma non sì che paura non mi desse la vista che m'apparve d'un leone.",
+    "Questi parea che contra me venisse con la test' alta e con rabbiosa fame, sì che parea che l'aere ne tremesse.",
+    "Ed una lupa, che di tutte brame sembiava carca ne la sua magrezza, e molte genti fé già viver grame,",
+    "questa mi porse tanto di gravezza con la paura ch'uscia di sua vista, ch'io perdei la speranza de l'altezza.",
+    "E qual è quei che volontieri acquista, e giugne 'l tempo che perder lo face, che 'n tutti suoi pensier piange e s'attrista;",
+    "tal mi fece la bestia sanza pace, che, venendomi 'ncontro, a poco a poco mi ripigneva là dove 'l sol tace.",
+    "Mentre ch'i' rovinava in basso loco, dinanzi a li occhi mi si fu offerto chi per lungo silenzio parea fioco.",
+    "Quando vidi costui nel gran diserto, «Miserere di me», gridai a lui, «qual che tu sii, od ombra od omo certo!».",
+    "Rispuosemi: «Non omo, omo già fui, e li parenti miei furon lombardi, mantoani per patrïa ambedui.",
+    "Nacqui sub Iulio, ancor che fosse tardi, e vissi a Roma sotto 'l buono Augusto nel tempo de li dèi falsi e bugiardi.",
+    "Poeta fui, e cantai di quel giusto figliuol d'Anchise che venne di Troia, poi che 'l superbo Ilïón fu combusto.",
+    "Ma tu perché ritorni a tanta noia? perché non sali il dilettoso monte ch'è principio e cagion di tutta gioia?».",
+    "«Or se' tu quel Virgilio e quella fonte che spandi di parlar sì largo fiume?», rispuos' io lui con vergognosa fronte.",
+    "«O de li altri poeti onore e lume, vagliami 'l lungo studio e 'l grande amore che m'ha fatto cercar lo tuo volume.",
+    "Tu se' lo mio maestro e 'l mio autore, tu se' solo colui da cu' io tolsi lo bello stilo che m'ha fatto onore.",
+    "Vedi la bestia per cu' io mi volsi; aiutami da lei, famoso saggio, ch'ella mi fa tremar le vene e i polsi».",
+    "«A te convien tenere altro vïaggio», rispuose, poi che lagrimar mi vide, «se vuo' campar d'esto loco selvaggio;",
+    "ché questa bestia, per la qual tu gride, non lascia altrui passar per la sua via, ma tanto lo 'mpedisce che l'uccide;",
+    "e ha natura sì malvagia e ria, che mai non empie la bramosa voglia, e dopo 'l pasto ha più fame che pria.",
+    "Molti son li animali a cui s'ammoglia, e più saranno ancora, infin che 'l veltro verrà, che la farà morir con doglia.",
+    "Questi non ciberà terra né peltro, ma sapïenza, amore e virtute, e sua nazion sarà tra feltro e feltro.",
+    "Di quella umile Italia fia salute per cui morì la vergine Cammilla, Eurïalo e Turno e Niso di ferute.",
+    "Questi la caccerà per ogne villa, fin che l'avrà rimessa ne lo 'nferno, là onde 'nvidia prima dipartilla.",
+    "Ond' io per lo tuo me' penso e discerno che tu mi segui, e io sarò tua guida, e trarrotti di qui per loco etterno;",
+    "ove udirai le disperate strida, vedrai li antichi spiriti dolenti, ch'a la seconda morte ciascun grida;",
+    "e vederai color che son contenti nel foco, perché speran di venire quando che sia a le beate genti.",
+    "A le quai poi se tu vorrai salire, anima fia a ciò più di me degna: con lei ti lascerò nel mio partire;",
+    "ché quello imperador che là sù regna, perch' i' fu' ribellante a la sua legge, non vuol che 'n sua città per me si vegna.",
+    "In tutte parti impera e quivi regge; quivi è la sua città e l'alto seggio: oh felice colui cu' ivi elegge!».",
+    "E io a lui: «Poeta, io ti richeggio per quello Dio che tu non conoscesti, acciò ch'io fugga questo male e peggio,",
+    "che tu mi meni là dov' or dicesti, sì ch'io veggia la porta di san Pietro e color cui tu fai cotanto mesti».",
+    "Allor si mosse, e io li tenni dietro.",
+    "«Per me si va ne la città dolente, per me si va ne l'etterno dolore, per me si va tra la perduta gente.",
+    "Giustizia mosse il mio alto fattore; fecemi la divina podestate, la somma sapïenza e 'l primo amore.",
+    "Dinanzi a me non fuor cose create se non etterne, e io etterno duro. Lasciate ogne speranza, voi ch'intrate».",
+    "Amor, ch'al cor gentil ratto s'apprende, prese costui de la bella persona che mi fu tolta; e 'l modo ancor m'offende.",
+    "Amor, ch'a nullo amato amar perdona, mi prese del costui piacer sì forte, che, come vedi, ancor non m'abbandona.",
+    "Considerate la vostra semenza: fatti non foste a viver come bruti, ma per seguir virtute e canoscenza.",
+    "e quindi uscimmo a riveder le stelle.",
+    "Per correr miglior acque alza le vele omai la navicella del mio ingegno, che lascia dietro a sé mar sì crudele;",
+    "A l'alta fantasia qui mancò possa; ma già volgeva il mio disio e 'l velle, sì come rota ch'igualmente è mossa,",
+    "l'amor che move il sole e l'altre stelle."
+  ];
+
+  // Universal Declaration of Human Rights (the UN permits free reproduction):
+  // the same eighteen articles in each language, sentence-aligned like the
+  // parallel corpus it is. French and Spanish from the UN texts; Japanese
+  // from the Ministry of Foreign Affairs translation. Transcribed.
+  var TEXT_UDHR_FR = [
+    "Article premier. Tous les êtres humains naissent libres et égaux en dignité et en droits. Ils sont doués de raison et de conscience et doivent agir les uns envers les autres dans un esprit de fraternité.",
+    "Article 2. Chacun peut se prévaloir de tous les droits et de toutes les libertés proclamés dans la présente Déclaration, sans distinction aucune, notamment de race, de couleur, de sexe, de langue, de religion, d'opinion politique ou de toute autre opinion, d'origine nationale ou sociale, de fortune, de naissance ou de toute autre situation.",
+    "Article 3. Tout individu a droit à la vie, à la liberté et à la sûreté de sa personne.",
+    "Article 4. Nul ne sera tenu en esclavage ni en servitude ; l'esclavage et la traite des esclaves sont interdits sous toutes leurs formes.",
+    "Article 5. Nul ne sera soumis à la torture, ni à des peines ou traitements cruels, inhumains ou dégradants.",
+    "Article 6. Chacun a le droit à la reconnaissance en tous lieux de sa personnalité juridique.",
+    "Article 7. Tous sont égaux devant la loi et ont droit sans distinction à une égale protection de la loi. Tous ont droit à une protection égale contre toute discrimination qui violerait la présente Déclaration et contre toute provocation à une telle discrimination.",
+    "Article 9. Nul ne peut être arbitrairement arrêté, détenu ou exilé.",
+    "Article 12. Nul ne sera l'objet d'immixtions arbitraires dans sa vie privée, sa famille, son domicile ou sa correspondance, ni d'atteintes à son honneur et à sa réputation. Toute personne a droit à la protection de la loi contre de telles immixtions ou de telles atteintes.",
+    "Article 13. Toute personne a le droit de circuler librement et de choisir sa résidence à l'intérieur d'un Etat. Toute personne a le droit de quitter tout pays, y compris le sien, et de revenir dans son pays.",
+    "Article 15. Tout individu a droit à une nationalité. Nul ne peut être arbitrairement privé de sa nationalité, ni du droit de changer de nationalité.",
+    "Article 18. Toute personne a droit à la liberté de pensée, de conscience et de religion ; ce droit implique la liberté de changer de religion ou de conviction ainsi que la liberté de manifester sa religion ou sa conviction, seule ou en commun, tant en public qu'en privé, par l'enseignement, les pratiques, le culte et l'accomplissement des rites.",
+    "Article 19. Tout individu a droit à la liberté d'opinion et d'expression, ce qui implique le droit de ne pas être inquiété pour ses opinions et celui de chercher, de recevoir et de répandre, sans considérations de frontières, les informations et les idées par quelque moyen d'expression que ce soit.",
+    "Article 20. Toute personne a droit à la liberté de réunion et d'association pacifiques. Nul ne peut être obligé de faire partie d'une association.",
+    "Article 24. Toute personne a droit au repos et aux loisirs et notamment à une limitation raisonnable de la durée du travail et à des congés payés périodiques.",
+    "Article 26. Toute personne a droit à l'éducation. L'éducation doit être gratuite, au moins en ce qui concerne l'enseignement élémentaire et fondamental. L'enseignement élémentaire est obligatoire.",
+    "Article 27. Toute personne a le droit de prendre part librement à la vie culturelle de la communauté, de jouir des arts et de participer au progrès scientifique et aux bienfaits qui en résultent.",
+    "Article 29. L'individu a des devoirs envers la communauté dans laquelle seul le libre et plein développement de sa personnalité est possible."
+  ];
+  var TEXT_UDHR_JA = [
+    "第一条 すべての人間は、生まれながらにして自由であり、かつ、尊厳と権利とについて平等である。人間は、理性と良心とを授けられており、互いに同胞の精神をもって行動しなければならない。",
+    "第二条 すべて人は、人種、皮膚の色、性、言語、宗教、政治上その他の意見、国民的若しくは社会的出身、財産、門地その他の地位又はこれに類するいかなる事由による差別をも受けることなく、この宣言に掲げるすべての権利と自由とを享有することができる。",
+    "第三条 すべて人は、生命、自由及び身体の安全に対する権利を有する。",
+    "第四条 何人も、奴隷にされ、又は苦役に服することはない。奴隷制度及び奴隷売買は、いかなる形においても禁止する。",
+    "第五条 何人も、拷問又は残虐な、非人道的な若しくは屈辱的な取扱若しくは刑罰を受けることはない。",
+    "第六条 すべて人は、いかなる場所においても、法の下において、人として認められる権利を有する。",
+    "第七条 すべての人は、法の下において平等であり、また、いかなる差別もなしに法の平等な保護を受ける権利を有する。すべての人は、この宣言に違反するいかなる差別に対しても、また、そのような差別をそそのかすいかなる行為に対しても、平等な保護を受ける権利を有する。",
+    "第九条 何人も、ほしいままに逮捕、拘禁、又は追放されることはない。",
+    "第十二条 何人も、自己の私事、家族、家庭若しくは通信に対して、ほしいままに干渉され、又は名誉及び信用に対して攻撃を受けることはない。人はすべて、このような干渉又は攻撃に対して法の保護を受ける権利を有する。",
+    "第十三条 すべて人は、各国の境界内において自由に移転及び居住する権利を有する。すべて人は、自国その他いずれの国をも立ち去り、及び自国に帰る権利を有する。",
+    "第十五条 すべて人は、国籍をもつ権利を有する。何人も、ほしいままにその国籍を奪われ、又はその国籍を変更する権利を否認されることはない。",
+    "第十八条 すべて人は、思想、良心及び宗教の自由に対する権利を有する。この権利は、宗教又は信念を変更する自由並びに単独で又は他の者と共同して、公的に又は私的に、布教、行事、礼拝及び儀式によって宗教又は信念を表明する自由を含む。",
+    "第十九条 すべて人は、意見及び表現の自由に対する権利を有する。この権利は、干渉を受けることなく自己の意見をもつ自由並びにあらゆる手段により、また、国境を越えると否とにかかわりなく、情報及び思想を求め、受け、及び伝える自由を含む。",
+    "第二十条 すべての人は、平和的集会及び結社の自由に対する権利を有する。何人も、結社に属することを強制されない。",
+    "第二十四条 すべて人は、労働時間の合理的な制限及び定期的な有給休暇を含む休息及び余暇をもつ権利を有する。",
+    "第二十六条 すべて人は、教育を受ける権利を有する。教育は、少なくとも初等の及び基礎的の段階においては、無償でなければならない。初等教育は、義務的でなければならない。",
+    "第二十七条 すべて人は、自由に社会の文化生活に参加し、芸術を鑑賞し、及び科学の進歩とその恩恵とにあずかる権利を有する。",
+    "第二十九条 すべて人は、その人格の自由かつ完全な発展がその中にあってのみ可能である社会に対して義務を負う。"
+  ];
+  var TEXT_UDHR_ES = [
+    "Artículo 1. Todos los seres humanos nacen libres e iguales en dignidad y derechos y, dotados como están de razón y conciencia, deben comportarse fraternalmente los unos con los otros.",
+    "Artículo 2. Toda persona tiene todos los derechos y libertades proclamados en esta Declaración, sin distinción alguna de raza, color, sexo, idioma, religión, opinión política o de cualquier otra índole, origen nacional o social, posición económica, nacimiento o cualquier otra condición.",
+    "Artículo 3. Todo individuo tiene derecho a la vida, a la libertad y a la seguridad de su persona.",
+    "Artículo 4. Nadie estará sometido a esclavitud ni a servidumbre, la esclavitud y la trata de esclavos están prohibidas en todas sus formas.",
+    "Artículo 5. Nadie será sometido a torturas ni a penas o tratos crueles, inhumanos o degradantes.",
+    "Artículo 6. Todo ser humano tiene derecho, en todas partes, al reconocimiento de su personalidad jurídica.",
+    "Artículo 7. Todos son iguales ante la ley y tienen, sin distinción, derecho a igual protección de la ley. Todos tienen derecho a igual protección contra toda discriminación que infrinja esta Declaración y contra toda provocación a tal discriminación.",
+    "Artículo 9. Nadie podrá ser arbitrariamente detenido, preso ni desterrado.",
+    "Artículo 12. Nadie será objeto de injerencias arbitrarias en su vida privada, su familia, su domicilio o su correspondencia, ni de ataques a su honra o a su reputación. Toda persona tiene derecho a la protección de la ley contra tales injerencias o ataques.",
+    "Artículo 13. Toda persona tiene derecho a circular libremente y a elegir su residencia en el territorio de un Estado. Toda persona tiene derecho a salir de cualquier país, incluso del propio, y a regresar a su país.",
+    "Artículo 15. Toda persona tiene derecho a una nacionalidad. A nadie se privará arbitrariamente de su nacionalidad ni del derecho a cambiar de nacionalidad.",
+    "Artículo 18. Toda persona tiene derecho a la libertad de pensamiento, de conciencia y de religión; este derecho incluye la libertad de cambiar de religión o de creencia, así como la libertad de manifestar su religión o su creencia, individual y colectivamente, tanto en público como en privado, por la enseñanza, la práctica, el culto y la observancia.",
+    "Artículo 19. Todo individuo tiene derecho a la libertad de opinión y de expresión; este derecho incluye el de no ser molestado a causa de sus opiniones, el de investigar y recibir informaciones y opiniones, y el de difundirlas, sin limitación de fronteras, por cualquier medio de expresión.",
+    "Artículo 20. Toda persona tiene derecho a la libertad de reunión y de asociación pacíficas. Nadie podrá ser obligado a pertenecer a una asociación.",
+    "Artículo 24. Toda persona tiene derecho al descanso, al disfrute del tiempo libre, a una limitación razonable de la duración del trabajo y a vacaciones periódicas pagadas.",
+    "Artículo 26. Toda persona tiene derecho a la educación. La educación debe ser gratuita, al menos en lo concerniente a la instrucción elemental y fundamental. La instrucción elemental será obligatoria.",
+    "Artículo 27. Toda persona tiene derecho a tomar parte libremente en la vida cultural de la comunidad, a gozar de las artes y a participar en el progreso científico y en los beneficios que de él resulten.",
+    "Artículo 29. Toda persona tiene deberes respecto a la comunidad, puesto que sólo en ella puede desarrollar libre y plenamente su personalidad."
+  ];
+
+  // The milks: lorem ipsum, and where it came from. MILK is the classic
+  // typesetter's paragraph; OAT and SOY are the real Cicero it was scrambled
+  // from (De finibus bonorum et malorum 1.10.32 and 1.10.33, 45 BC); UBE is
+  // H. Rackham's 1914 English translation of the same passage. All public domain.
+  var TEXT_MILK = [
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+    "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+    "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+  ];
+  var TEXT_OAT = [
+    "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.",
+    "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.",
+    "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.",
+    "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur?",
+    "Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?"
+  ];
+  var TEXT_SOY = [
+    "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga.",
+    "Et harum quidem rerum facilis est et expedita distinctio.",
+    "Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus.",
+    "Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae.",
+    "Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat."
+  ];
+  var TEXT_UBE = [
+    "But I must explain to you how all this mistaken idea of denouncing pleasure and praising pain was born and I will give you a complete account of the system, and expound the actual teachings of the great explorer of the truth, the master-builder of human happiness.",
+    "No one rejects, dislikes, or avoids pleasure itself, because it is pleasure, but because those who do not know how to pursue pleasure rationally encounter consequences that are extremely painful.",
+    "Nor again is there anyone who loves or pursues or desires to obtain pain of itself, because it is pain, but because occasionally circumstances occur in which toil and pain can procure him some great pleasure.",
+    "To take a trivial example, which of us ever undertakes laborious physical exercise, except to obtain some advantage from it?",
+    "But who has any right to find fault with a man who chooses to enjoy a pleasure that has no annoying consequences, or one who avoids a pain that produces no resultant pleasure?"
+  ];
+
+  // π: computed, not stored. Machin's formula in BigInt fixed point, doubling
+  // the precision whenever the pour catches up, so the corpus never repeats.
+  function piCorpus() {
+    var digits = "", pos = 0, want = 1000;
+    function piString(n) {
+      var B = BigInt, unity = B(10) ** B(n + 10);
+      function atanInv(x) {
+        var X = B(x), x2 = X * X, term = unity / X, sum = term, k = B(1), neg = true, zero = B(0), two = B(2);
+        while (term !== zero) {
+          term = term / x2; k = k + two;
+          sum = neg ? sum - term / k : sum + term / k; neg = !neg;
+        }
+        return sum;
+      }
+      return String(B(16) * atanInv(5) - B(4) * atanInv(239)).slice(0, n);
+    }
+    var fallback = "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679";
+    return function () {
+      if (pos + 5 > digits.length) {
+        try { digits = piString(want); want *= 2; }
+        catch (e) { digits = fallback; if (pos + 5 > digits.length) pos = 1; }  // no BigInt: loop a known stretch
+      }
+      if (pos === 0) { pos = 6; return "3.14159"; }
+      var g = digits.slice(pos, pos + 5); pos += 5;
+      return g;
+    };
+  }
+
   var CORPORA = {
-    "coca":  corpus("#8a4a2f", "I mean, honestly, the whole thing was kind of a big deal - people were talking about it at work, on the news, everywhere, and nobody could say exactly why. "),
-    "brown": corpus("#7a5230", "The Fulton County Grand Jury said Friday an investigation of Atlanta's recent primary election produced no evidence that any irregularities took place. "),
-    "swbd":  corpus("#a87b12", "uh do you have any uh pets at home? well [laughter] we we have a poodle and uh you know she's about seven now uh-huh yeah right right "),
-    "wordnet": corpus("#3f9e57", "cat, true cat (feline mammal usually having thick soft fur and no ability to roar) => feline, felid => carnivore => placental => mammal "),
-    "pi-up": corpus("#4db3a4", "3.14159 26535 89793 23846 26433 83279 50288 41971 69399 37510 58209 74944 59230 78164 06286 20899 86280 34825 34211 70679 "),
-    "dante": corpus("#5a3a26", "Nel mezzo del cammin di nostra vita mi ritrovai per una selva oscura, ché la diritta via era smarrita. Ahi quanto a dir qual era è cosa dura esta selva selvaggia e aspra e forte che nel pensier rinova la paura! "),
-    "udhr-fr": corpus("#b9814a", "Tous les êtres humains naissent libres et égaux en dignité et en droits. Ils sont doués de raison et de conscience et doivent agir les uns envers les autres dans un esprit de fraternité. "),
-    "udhr-ja": corpus("#6a9e4f", "すべての人間は、生まれながらにして自由であり、かつ、尊厳と権利とについて平等である。人間は、理性と良心とを授けられており、互いに同胞の精神をもって行動しなければならない。"),
-    "udhr-es": corpus("#c94f6d", "Todos los seres humanos nacen libres e iguales en dignidad y derechos y, dotados como están de razón y conciencia, deben comportarse fraternalmente los unos con los otros. "),
-    // the milks. evil idea (hers): they pour lorem ipsum — one sentence each.
-    "milk": corpus("#cfc4ae", "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. "),
-    "oat":  corpus("#c29a66", "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. "),
-    "soy":  corpus("#9dbf94", "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. "),
-    "ube":  corpus("#a97fd6", "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. ")
+    "coca":    corpus("#8a4a2f", TEXT_COCA),
+    "brown":   corpus("#7a5230", TEXT_BROWN),
+    "swbd":    corpus("#a87b12", TEXT_SWBD),
+    "wordnet": corpus("#3f9e57", TEXT_WORDNET),
+    "pi-up":   corpus("#4db3a4", ["3.14159 26535 89793 23846 26433 83279"]),
+    "dante":   corpus("#5a3a26", TEXT_DANTE, "seq"),
+    "udhr-fr": corpus("#b9814a", TEXT_UDHR_FR, "seq"),
+    "udhr-ja": corpus("#6a9e4f", TEXT_UDHR_JA, "seq"),
+    "udhr-es": corpus("#c94f6d", TEXT_UDHR_ES, "seq"),
+    // the milks. evil idea (hers): they pour lorem ipsum, and its Cicero.
+    "milk": corpus("#cfc4ae", TEXT_MILK, "seq"),
+    "oat":  corpus("#c29a66", TEXT_OAT, "seq"),
+    "soy":  corpus("#9dbf94", TEXT_SOY, "seq"),
+    "ube":  corpus("#a97fd6", TEXT_UBE, "seq")
   };
+  CORPORA["pi-up"].gen = piCorpus();
   CORPORA.dante2 = CORPORA.dante;   // both espresso groups read from the same canto
+  // Brown opens with its famous first sentence, then shuffles the rest.
+  CORPORA.brown.queue = chunkWords(TEXT_BROWN[0]);
   var MOJI = { hue: 0, idx: 0,
-    list: ["✧","☆","♡","★","♪","✿","°","˖","(☆ω☆)","◕","ʕ•ᴥ•ʔ","♡","✧","☆","(◕‿◕)","*","(ノ◕ヮ◕)ノ","ω","♬","(=^･ω･^=)","❀","(⌒▽⌒)"] };
+    list: ["✧","☆","♡","★","♪","✿","°","˖","(☆ω☆)","◕","ʕ•ᴥ•ʔ","♡","✧","☆","(◕‿◕)","*","(ノ◕ヮ◕)ノ","ω","♬","(=^･ω･^=)","❀","(⌒▽⌒)",
+           "(´･ω･`)","(＾▽＾)","ヽ(・∀・)ﾉ","(｡♥‿♥｡)","(*^^*)","(o^▽^o)","(≧◡≦)","(ᵔᴥᵔ)","(•ө•)","(=ↀωↀ=)","(っ˘ω˘ς)","(✿◠‿◠)",
+           "(^_^)","(^-^)/","(*´▽`*)","(〃＾▽＾〃)","(๑˃ᴗ˂)ﻭ","(っ◔◡◔)っ","ᕕ(ᐛ)ᕗ","٩(◕‿◕)۶","(ﾉ´ヮ`)ﾉ*: ･ﾟ","(´｡• ᵕ •｡`)","☆*:.｡.o(≧▽≦)o.｡.:*☆",
+           "(=^-ω-^=)","(・ω・)","( ˘▽˘)っ♨","(^^)v","(*≧ω≦*)","ヾ(＾∇＾)","(*˘︶˘*)","(◠‿◠✿)","♪～(´ε｀ )","(^_−)☆","(•‿•)","(o´▽`o)",
+           "✩","✦","❁","♫","⋆","☕","♥","✧˖°","ﾟ･✿"] };
   var DUSTS = {
-    grind: { chars: ",.;:!?()-'\"", color: "#6b4a33" },   // grinds whole words down to punctuation
+    grind: { chars: ",.;:!?()-'\"…—«»¡¿§¶‽", color: "#6b4a33" },   // grinds whole words down to punctuation
     steam: { chars: "°˚∘·",  color: "#c3ccd4" },
     cinn:  { chars: "·.:",   color: "#a8683a" },
     choc:  { chars: "~≈",    color: "#5a3420" },
@@ -435,8 +1013,8 @@
       return { ch: d.chars[Math.floor(Math.random() * d.chars.length)], color: d.color };
     }
     var c = CORPORA[key];
-    var w = c.words[c.idx % c.words.length]; c.idx++;
-    return { ch: w, color: c.color, word: w.length > 1 };
+    var w = nextWord(c);
+    return { ch: w, color: c.color, word: true };   // "I" and "a" are words too
   }
 
   var EMITTERS = {};
@@ -454,7 +1032,7 @@
     var e = EMITTERS[key];
     if (key === "ice") {
       var io = e.offs[0], ik = e.obj.scale || 1;
-      particles.push({ sprite: ICE_CUBE.rows, map: ICE_CUBE.map, kind: "ice", color: null, scale: 5,
+      particles.push({ sprite: ICE_CUBE.rows, map: ICE_CUBE.map, kind: "ice", src: "ice", color: null, scale: 5,
         x: e.obj.x + io[0] * ik + (Math.random() - 0.5) * 12, y: e.obj.y + io[1] * ik,
         vx: (Math.random() - 0.5) * 0.5, vy: 0.8, g: 0.12, rise: false, alpha: 1, fade: 0,
         bounced: false, slurp: false, word: false, big: false, cream: false });
@@ -484,7 +1062,7 @@
     var isSyrup = key === "choc" || key === "carm" || key === "vani";
     particles.push({
       ch: c.ch, color: c.color, big: !!c.big, word: !!c.word, cream: !!c.cream,
-      syrup: isSyrup,
+      syrup: isSyrup, src: key === "dante2" ? "dante" : key,
       hot: key === "dante" || key === "dante2",
       fluid: !isCream && (!!CORPORA[key] || key === "magic-moji"),
       topping: !!e.obj.isTopping,
@@ -501,7 +1079,7 @@
   }
   function tossSprite(def, x, y, kind, scale, vy) {
     particles.push({
-      sprite: def.rows, map: def.map, kind: kind, color: null, scale: scale || 4,
+      sprite: def.rows, map: def.map, kind: kind, src: kind, color: null, scale: scale || 4,
       topping: !!GARNISH[kind],
       x: x, y: y, vx: (Math.random() - 0.5) * 1.4, vy: vy != null ? vy : -2 - Math.random(),
       g: 0.12, rise: false, alpha: 1, fade: 0, bounced: false, slurp: false
@@ -677,7 +1255,7 @@
     }
     v.contents.push({ ch: chr, color: color, big: !!opts.big, sprite: opts.sprite || null,
       map: opts.map || null, scale: opts.scale || 1, kind: opts.kind || null,
-      cream: !!opts.cream, froth: false,
+      cream: !!opts.cream, froth: false, src: opts.src || null,
       syrup: !!opts.syrup,
       hot: !!opts.hot,
       word: !!opts.word, fluid: fluid, top: top, dx: dx, dy: dy, bin: b, fillInc: inc });
@@ -691,7 +1269,7 @@
       return true;
     }
     if (p.sprite) {  // garnish rests on the drink; ice remains part of its capacity
-      return addChar(v, null, null, { dx: p.x - v.x, sprite: p.sprite, map: p.map,
+      return addChar(v, null, null, { src: p.src, dx: p.x - v.x, sprite: p.sprite, map: p.map,
         scale: p.scale, kind: p.kind, top: p.kind !== "ice", inc: 4 * p.scale });
     }
     if (p.cream) {   // whipped words gather into one soft cap instead of becoming liquid
@@ -706,23 +1284,23 @@
         clumpX += (Math.random() - 0.5) * 10;
       }
       return addChar(v, p.ch, p.color, {
-        dx: clampDx(v, clumpX), cream: true, top: true, word: !!p.word, inc: p.word ? 8 : 5
+        src: p.src, dx: clampDx(v, clumpX), cream: true, top: true, word: !!p.word, inc: p.word ? 8 : 5
       });
     }
     if (p.syrup) {   // sauces ribbon onto the surface, even when liquid reaches the rim
       return addChar(v, p.ch, p.color, {
-        dx: clampDx(v, p.x - v.x), top: true, syrup: true, inc: 3.2
+        src: p.src, dx: clampDx(v, p.x - v.x), top: true, syrup: true, inc: 3.2
       });
     }
     if (p.word) {    // keep a corpus token intact and readable once it joins the drink
       if (p.hot) v.heat = Math.max(v.heat || 0, 360);
       return addChar(v, p.ch, p.color, {
-        big: p.big, word: true, fluid: true, hot: !!p.hot,
+        src: p.src, big: p.big, word: true, fluid: true, hot: !!p.hot,
         inc: Math.min(12, 5 + p.ch.length * 0.75)
       });
     }
     return addChar(v, p.ch, p.color, {
-      dx: p.x - v.x, big: p.big, cream: p.cream, fluid: !!p.fluid, top: !!p.topping
+      src: p.src, dx: p.x - v.x, big: p.big, cream: p.cream, fluid: !!p.fluid, top: !!p.topping
     });
   }
 
@@ -744,7 +1322,7 @@
       }
       particles.push({
         ch: s.ch, color: s.color, big: s.big, sprite: s.sprite, map: s.map, scale: s.scale,
-        kind: s.kind,
+        kind: s.kind, src: s.src,
         fluid: !!s.fluid, topping: !!s.top,
         x: v.x + s.dx, y: vRim(v) - 2,
         vx: (s.dx < v.bodyX + v.bodyW / 2 ? -1 : 1) * (0.8 + Math.random()),
@@ -765,7 +1343,7 @@
     if (b > 0) v.heights[b - 1] = Math.max(0, v.heights[b - 1] - dec * 0.35);
     if (b < v.nBins - 1) v.heights[b + 1] = Math.max(0, v.heights[b + 1] - dec * 0.35);
     for (var h = 0; h < 3; h++)
-      addChar(v, "H2O", "#8fc9df", { word: true, fluid: true, inc: 3.2 });
+      addChar(v, "H2O", "#8fc9df", { src: "h2o", word: true, fluid: true, inc: 3.2 });
     console.log("[cafe] hot drink melted an ice cube into H2O");
     return true;
   }
@@ -804,6 +1382,7 @@
   }
   function tapVessel(v) {
     if (!v.contents.length && !v.straws.length) return;
+    discoverFrom(v, null);                         // drinking your own invention counts
     emptyVessel(v);
   }
 
@@ -1166,8 +1745,10 @@
     },
     tops: [[4, 216, 155], [4, 216, 14]]
   });
-  addEmitter("dante",  espresso, [[47, 104], [63, 104]],   { rate: 4 });
-  addEmitter("dante2", espresso, [[157, 104], [173, 104]], { rate: 4 });
+  // twin streams from the real group nozzle (gx + 18..26), close enough together
+  // that one demitasse catches both
+  addEmitter("dante",  espresso, [[52, 104], [58, 104]],   { rate: 4 });
+  addEmitter("dante2", espresso, [[162, 104], [168, 104]], { rate: 4 });
   addEmitter("steam",  espresso, [[2, 98], [217, 98]],   { rate: 2, rise: true });
 
   // ===== KOFEMOLKA bean grinder =====
@@ -1358,13 +1939,15 @@
   var RAG = { x: 3263, y: 682, w: 112, h: 54, vy: 0, dragging: false, docked: true,
               dockW: 112, dockH: 54, looseW: 150, looseH: 66 };
   function dockRag(splash) {
+    var ox = RAG.x, oy = RAG.y, ow = RAG.w;
     RAG.w = RAG.dockW; RAG.h = RAG.dockH;
     var bw = bucket.w * bucket.scale;
     RAG.x = bucket.x + Math.round((bw - RAG.w) / 2) + 5;
     RAG.y = bucket.y + 28;                       // 5–10px of folded cloth peeks above the front lip
     RAG.vy = 0;
     RAG.docked = true;
-    buttonsDirty = true;
+    // Called every frame while docked: only re-lay the hit buttons if it moved.
+    if (RAG.x !== ox || RAG.y !== oy || RAG.w !== ow) buttonsDirty = true;
     if (splash) {
       for (var i = 0; i < 6; i++) {
         particles.push({
@@ -1717,8 +2300,16 @@
 
   function step() {
     frame++;
+    if (frame % 30 === 0) orderDirty = true;       // melts, spills and sips change the ticket too
     Object.keys(pressedKeys).forEach(function (key) {
       if (pressedKeys[key] && EMITTERS[key] && frame % EMITTERS[key].rate === 0) spawnFrom(key);
+    });
+    [["shotL", 1], ["shotR", 2]].forEach(function (g) {
+      if (espresso[g[0]] > 0 && PORTAFILTER.mountedGroup !== g[1]) {
+        espresso[g[0]] = 0;                       // no puck, no shot: the pump stops
+        PORTAFILTER.brewing = false;
+        console.log("[cafe] espresso group " + g[1] + ": portafilter pulled mid-shot");
+      }
     });
     if (espresso.shotL > 0) {
       espresso.shotL--;
@@ -1822,6 +2413,9 @@
           for (var vi = 0; vi < VESSELS.length; vi++) {
             var v = VESSELS[vi];
             if (p.overflowVessel === v.id && p.overflowT > 0) continue;
+            // The tamper is a tool, not a cup; a mounted portafilter sits right at
+            // the spouts, so catching the shot there bounced half of it away.
+            if (v.style === "tamper" || (v.style === "porta" && v.mountedGroup)) continue;
             var bx = v.x + v.bodyX;
             if (p.x > bx + 4 && p.x < bx + v.bodyW - 4 &&
                 p.y >= vRim(v) + 6 && p.y <= vBottom(v) + 3) {
@@ -1831,7 +2425,7 @@
               caught = true;
               var surface = vBottom(v) - 4 - v.heights[binAt(v, p.x)];
               if (p.y >= surface - 2) {
-                if (settleIn(v, p)) { particles.splice(i, 1); settled = true; }
+                if (settleIn(v, p)) { particles.splice(i, 1); settled = true; noteFill(v); }
                 else {
                   var side = p.x === bx + v.bodyW / 2 ? (Math.random() < 0.5 ? -1 : 1) :
                              (p.x > bx + v.bodyW / 2 ? 1 : -1);
@@ -2055,6 +2649,7 @@
       if (r.x + r.w >= view.x - 40 && r.x <= view.x + view.w + 40 &&
           r.y + r.h >= view.y - 40 && r.y <= view.y + view.h + 40) drawVessel(v);
     });
+    drawFocusMarker();
     var ragBox = bodyBox(RAG);
     if (ragBox.x + ragBox.w >= view.x - 40 && ragBox.x <= view.x + view.w + 40 &&
         ragBox.y + ragBox.h >= view.y - 40 && ragBox.y <= view.y + view.h + 40) drawRag();
@@ -2069,6 +2664,17 @@
     mctx.restore();
     if (buttonsDirty) positionButtons();
     updateDrinkHints();
+    if (orderDirty && frame - lastTicketFrame >= 8) { lastTicketFrame = frame; updateTicket(); }
+  }
+  // a small pink pointer over the cup the order ticket is checking
+  function drawFocusMarker() {
+    var fv = focusVessel;
+    if (!fv || !ORDER || ORDER.state !== "waiting" || !orderEl || orderEl.hidden || !fv.contents.length) return;
+    var fx = Math.round(fv.x + fv.bodyX + fv.bodyW / 2);
+    var fy = Math.round(vRim(fv) - 44 - (reduceMotion ? 0 : Math.sin(frame * 0.08) * 4));
+    // a chunky outlined arrowhead, 3px cells
+    sprite([".ooooooooo.", "oppppppppwo", ".oppppppwo.", "..opppppo..", "...opppo...", "....opo....", ".....o....."],
+      { o: OUT, p: "#f2668b", w: "#ffb3c7" }, fx - 16, fy, 3);
   }
   function updateDrinkHints() {
     allButtons.forEach(function (b) {
@@ -2114,7 +2720,19 @@
     root.scrollLeft = clampScrollX(root.scrollLeft);
     root.scrollTop = 0;
     buttonsDirty = true;
+    fitTicket(scale);
     draw();
+  }
+  // Keep the order ticket on the tiled counter front (below FLOOR) whenever
+  // there is room, so it never covers a cup or a spill.
+  function fitTicket(scale) {
+    var el = document.getElementById("pc-order");
+    if (!el) return;
+    var narrow = window.innerWidth <= 640;
+    var bottom = narrow ? 58 : 12;
+    var room = window.innerHeight - FLOOR * scale - bottom - 10;
+    el.classList.toggle("pc-order-compact", room < 130);      // small phones: just the essentials
+    el.style.maxHeight = Math.max(72, Math.round(room)) + "px";
   }
   if (window.ResizeObserver) new ResizeObserver(resize).observe(root);
   root.addEventListener("scroll", function () {
@@ -2126,9 +2744,13 @@
   }, { passive: true });
   // Drive horizontal wheel/trackpad movement ourselves so a large momentum
   // delta is clamped before the browser compositor can rubber-band past an end.
+  // The page never scrolls vertically, so a plain mouse wheel (deltaY only)
+  // walks along the counter as well; line/page delta modes are normalized.
   root.addEventListener("wheel", function (e) {
-    var dx = e.deltaX || (e.shiftKey ? e.deltaY : 0);
+    if (e.ctrlKey) return;                                   // pinch-zoom gestures
+    var dx = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     if (!dx) return;
+    if (e.deltaMode === 1) dx *= 16; else if (e.deltaMode === 2) dx *= root.clientWidth;
     e.preventDefault();
     root.scrollLeft = clampScrollX(root.scrollLeft + dx);
   }, { passive: false });
@@ -2145,6 +2767,7 @@
   }, { passive: false });
   root.addEventListener("touchend", function () { edgeTouchX = null; }, { passive: true });
   resize();
+  root.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 
   // ---------------- engine: buttons ----------------
   function toLogical(e) {
@@ -2220,11 +2843,21 @@
       buttonsDirty = true;
     });
   }
+  // setPointerCapture throws if the pointer is already gone (fast taps, synthetic
+  // events); a failed capture must never abort the pour or drag that follows.
+  // A click with no pointer behind it (keyboard, switch access, screen reader).
+  // Chrome reports touch-generated clicks with detail 0 too, so detail alone
+  // made every touch release pour an extra half second, toss a second garnish,
+  // or instantly put a just-picked-up bottle back down.
+  function assistiveClick(e) { return e.detail === 0 && !e.pointerType; }
+  function capture(el, id) {
+    try { if (el.setPointerCapture) el.setPointerCapture(id); } catch (err) {}
+  }
   function addDrag(el, target, onTap, onMove, onRelease) {
     var drag = null;
     el.addEventListener("pointerdown", function (e) {
       e.preventDefault();
-      if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
+      capture(el, e.pointerId);
       var rect = stage.getBoundingClientRect();
       drag = { cx: e.clientX, cy: e.clientY, ox: target.x, oy: target.y,
                s: rect.width / W, moved: false, docked: target.docked,
@@ -2253,6 +2886,7 @@
       if (target.isVessel) {
         var rr = root.getBoundingClientRect();
         drag.edgeDir = e.clientX < rr.left + 70 ? -1 : e.clientX > rr.right - 70 ? 1 : 0;
+        if (overTicket(e)) drag.edgeDir = 0;     // aiming at the order ticket: hold still
       }
       var dx = (e.clientX - drag.cx) / drag.s, dy = (e.clientY - drag.cy) / drag.s;
       if (Math.abs(dx) > 2 || Math.abs(dy) > 2) drag.moved = true;
@@ -2268,13 +2902,13 @@
       buttonsDirty = true;
       draw();
     });
-    el.addEventListener("pointerup", function () {
+    el.addEventListener("pointerup", function (e) {
       var wasTap = !!(drag && !drag.moved);
       if (drag && drag.panTimer) clearInterval(drag.panTimer);
       drag = null;
       target.dragging = false;
       if (wasTap && onTap) onTap("pointer");
-      if (onRelease) onRelease(wasTap, false);
+      if (onRelease) onRelease(wasTap, false, e);
       ensureLoop();
     });
     el.addEventListener("pointercancel", function () {
@@ -2289,7 +2923,7 @@
       draw(); ensureLoop();
     });
     el.addEventListener("click", function (e) {
-      if (e.detail === 0 && onTap) {
+      if (assistiveClick(e) && onTap) {
         if (target.isTopping && target.held) putDown();
         else onTap("assistive");
       }
@@ -2347,7 +2981,7 @@
         btn.addEventListener("pointerdown", function (e) {
           e.preventDefault();
           if (r.when && !r.when()) return;
-          if (btn.setPointerCapture) btn.setPointerCapture(e.pointerId);
+          capture(btn, e.pointerId);
           setPour(r.key, o, btn, true);
         });
         ["pointerup", "pointercancel"].forEach(function (t) {
@@ -2365,7 +2999,7 @@
         });
         btn.addEventListener("blur", function () { setPour(r.key, o, btn, false); });
         btn.addEventListener("click", function (e) {
-          if (e.detail !== 0) return;
+          if (!assistiveClick(e)) return;
           if (r.when && !r.when()) return;
           setPour(r.key, o, btn, true);
           setTimeout(function () { setPour(r.key, o, btn, false); }, 500);
@@ -2373,7 +3007,7 @@
       } else if (r.kind === "carry") {
         btn.addEventListener("pointerdown", function (e) {
           e.preventDefault();
-          if (btn.setPointerCapture) btn.setPointerCapture(e.pointerId);
+          capture(btn, e.pointerId);
           var p = toLogical(e);
           var c = r.carry();
           CARRY = { def: c.def, kind: c.kind, scale: c.scale, x: p.x, y: p.y };
@@ -2406,7 +3040,7 @@
           }
         });
         btn.addEventListener("click", function (e) {
-          if (e.detail !== 0) return;
+          if (!assistiveClick(e)) return;
           var c = r.carry();
           tossSprite(c.def, o.x + (r.x + r.w / 2) * (o.scale || 1),
             o.y + r.y * (o.scale || 1), c.kind, c.scale);
@@ -2439,16 +3073,25 @@
     vb.setAttribute("aria-label", v.label + (drinkable ? " — drag to move; double-click to drink" : " — drag to use"));
     stage.appendChild(vb);
     allButtons.push({ el: vb, vessel: v });
-    addDrag(vb, v, null, function (moveX, moveY) {
-      if (drinkable) agitateVessel(v, moveX, moveY);
-    }, function () {
+    var lastTapAt = 0;
+    addDrag(vb, v, function () {
+      // Double-tap to drink: touch browsers do not reliably send dblclick.
+      var now = performance.now();
+      if (drinkable && now - lastTapAt < 380) { lastTapAt = 0; tapVessel(v); }
+      else lastTapAt = now;
+    }, function (moveX, moveY, e) {
+      if (drinkable) { agitateVessel(v, moveX, moveY); noteFill(v, true); }
+      if (drinkable && e) hoverTicket(overTicket(e) && v.contents.length > 0);
+    }, function (wasTap, _cancel, e) {
       if (v.style === "porta") tryMountPortafilter(v);
       else if (v.style === "tamper") tryTamp(v);
+      hoverTicket(false);
+      if (drinkable && !wasTap && e && overTicket(e)) serveVessel(v);
     });
     if (drinkable) {
       vb.addEventListener("dblclick", function (e) {
         e.preventDefault();
-        tapVessel(v);
+        tapVessel(v);                              // a no-op if the double-tap already drank it
       });
       vb.addEventListener("keydown", function (e) {
         if ((e.key === "Enter" || e.key === " ") && !e.repeat) {
@@ -2500,6 +3143,11 @@
   stage.addEventListener("pointerdown", function (e) {
     if (!HELD) return;
     e.preventDefault();
+    var pp = toLogical(e);                        // touch has no hover: go where the finger is
+    HELD.x = Math.round(pp.x - HELD.w * HELD.scale / 2);
+    HELD.y = Math.round(pp.y - 10);
+    clampBody(HELD);
+    buttonsDirty = true;
     clearTimeout(heldTimer);
     var pouringObj = HELD;
     heldTimer = setTimeout(function () {
@@ -2520,7 +3168,16 @@
     stopHeldPour();
   });
   document.addEventListener("keydown", function (e) {
-    if (HELD && e.key === "Escape") { e.preventDefault(); putDown(); }
+    if (e.key !== "Escape") return;
+    if (HELD) { e.preventDefault(); putDown(); return; }
+    ["pc-about", "pc-menu-panel"].forEach(function (id) {       // Escape closes an open panel
+      var el = document.getElementById(id);
+      if (el && !el.hidden) el.hidden = true;
+    });
+    ["pc-info", "pc-menu"].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) b.setAttribute("aria-expanded", "false");
+    });
   });
 
   var ragBtn = document.createElement("button");
@@ -2559,6 +3216,409 @@
     stopHeldPour();
   });
 
+  // ---------------- orders: customers, the menu board, the tip jar ----------------
+  // One gentle loop: a linguist orders a drink described in linguistic terms,
+  // the ticket checks the cup you are working on live, and you hand it over by
+  // dragging the cup onto the ticket. No timers, no failing: every drink gets a
+  // tip, a perfect one stamps the recipe on the menu board. Drinking a drink
+  // that matches a recipe yourself also discovers it.
+  var SAVE_KEY = "corpora-cafe:v1";
+  var SAVE = (function () {
+    try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) { return {}; }
+  })();
+  SAVE.tips = SAVE.tips || 0;
+  SAVE.found = SAVE.found || {};
+  function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) {} }
+
+  var SODA_KEYS = ["coca", "brown", "swbd", "wordnet", "pi-up", "magic-moji"];
+  var UDHR_KEYS = ["udhr-fr", "udhr-ja", "udhr-es"];
+  var STYLE_NAME = { big: "big cup", glass: "tall glass", gmug: "glass mug", demi: "demitasse" };
+  var LETTER = null;
+  try { LETTER = new RegExp("[\\p{L}\\p{N}]", "u"); } catch (e) { LETTER = /[0-9A-Za-zÀ-ɏ぀-鿿]/; }
+  function normToken(w) {
+    var chars = Array.from(String(w).toLowerCase());
+    while (chars.length && !LETTER.test(chars[0])) chars.shift();
+    while (chars.length && !LETTER.test(chars[chars.length - 1])) chars.pop();
+    return chars.join("");
+  }
+  function drinkStats(v) {
+    var st = { style: v.style, src: {}, froth: 0, tokens: 0, types: 0, hapax: 0, top: 0, hapaxShare: 0 };
+    var freq = Object.create(null);
+    v.contents.forEach(function (s) {
+      var k = s.src || s.kind || "?";
+      st.src[k] = (st.src[k] || 0) + 1;
+      if (s.froth) st.froth++;
+      if (s.word && CORPORA[k] && k !== "pi-up") {        // lexical stats: real words only
+        var w = normToken(s.ch);
+        if (w && !/^[0-9]+$/.test(w)) { freq[w] = (freq[w] || 0) + 1; st.tokens++; }
+      }
+    });
+    Object.keys(freq).forEach(function (w) {
+      st.types++;
+      if (freq[w] === 1) st.hapax++;
+      if (freq[w] > st.top) st.top = freq[w];
+    });
+    st.hapaxShare = st.types ? st.hapax / st.types : 0;
+    return st;
+  }
+  function sumOf(st, keys) { return keys.reduce(function (a, k) { return a + (st.src[k] || 0); }, 0); }
+
+  // need helpers: counted needs show progress (7/15), boolean ones a tick
+  function nSrc(keys, want, label) {
+    keys = [].concat(keys);
+    return { label: label, want: want, get: function (st) { return sumOf(st, keys); } };
+  }
+  function nIs(label, test) {
+    return { label: label, want: 1, bool: true, get: function (st) { return test(st) ? 1 : 0; } };
+  }
+  function nStyle(style) {
+    return nIs("in a " + STYLE_NAME[style], function (st) { return st.style === style; });
+  }
+  var MILKS = ["milk", "oat", "soy", "ube"];
+  var RECIPES = [
+    { id: "cola", name: "Contemporary Cola", ask: "a big cup of contemporary American English, on the rocks",
+      hint: "the big cup starts under the fountain · ICE is the little blue chute",
+      needs: [nStyle("big"), nSrc("coca", 20, "COCA"), nSrc("ice", 2, "ice cubes")] },
+    { id: "brown-cow", name: "Brown Cow", ask: "the original million-word classic, with a splash of milk",
+      hint: "open the MILKS fridge door, click a carton to pick it up, hold to pour",
+      needs: [nSrc("brown", 15, "BROWN"), nSrc(MILKS, 6, "any milk")] },
+    { id: "highball", name: "Hypernym Highball", ask: "a tall glass of hypernyms, with a twist",
+      hint: "tall glasses wait on the shelf at the far end · the twist is on the garnish tray",
+      needs: [nStyle("glass"), nSrc("wordnet", 15, "WORDNET"), nSrc(["lemon", "lime"], 1, "lemon or lime")] },
+    { id: "uh-huh", name: "Uh-Huh Float", ask: "something, uh, disfluent? you know, with whip on top",
+      hint: "click the WHIP can on the shelf, then press and hold over the cup",
+      needs: [nSrc("swbd", 15, "SWITCHBOARD"), nSrc("whip", 4, "whipped cream")] },
+    { id: "irrational", name: "Irrational on the Rocks", ask: "a transcendental pour that never repeats, over ice",
+      hint: "πUP is computed live; it really does not repeat",
+      needs: [nSrc("pi-up", 12, "πUP"), nSrc("ice", 3, "ice cubes")] },
+    { id: "babel", name: "The Babel", ask: "a trilingual tea, steeped in human rights",
+      hint: "the three UDHR urns are aligned article by article",
+      needs: [nSrc("udhr-fr", 5, "French"), nSrc("udhr-ja", 5, "Japanese"), nSrc("udhr-es", 5, "Spanish")] },
+    { id: "code-switch", name: "Code-Switch Mint Tea", ask: "a code-switched tea: exactly two languages, fresh mint",
+      hint: "two urns, not three · mint is on the garnish tray",
+      needs: [nIs("exactly two UDHR languages", function (st) {
+                var on = UDHR_KEYS.filter(function (k) { return (st.src[k] || 0) >= 5; }).length;
+                var any = UDHR_KEYS.filter(function (k) { return (st.src[k] || 0) > 0; }).length;
+                return on === 2 && any === 2;
+              }),
+              nSrc("mint", 1, "mint")] },
+    { id: "selva", name: "Selva Oscura", ask: "a demitasse of hendecasyllables, pulled hot",
+      hint: "grind into the portafilter, tamp it, drop it on a SMOL group, press that group's button",
+      needs: [nStyle("demi"), nSrc("dante", 8, "Dante")] },
+    { id: "cortado", name: "Ciceronian Cortado", ask: "espresso, cut with the Latin that lorem ipsum came from",
+      hint: "OAT and SOY pour Cicero's De finibus, the source of lorem ipsum",
+      needs: [nSrc("dante", 6, "Dante"), nSrc(["oat", "soy"], 6, "Cicero (OAT or SOY)")] },
+    { id: "hapax-latte", name: "Hapax Latte", ask: "a lexically diverse latte, extra hapax, steamed",
+      hint: "hapax legomena: words that occur once · the steam knobs are on SMOL's sides",
+      needs: [nIs("30+ words", function (st) { return st.tokens >= 30; }),
+              nIs("80% of word types are hapaxes", function (st) { return st.types > 0 && st.hapaxShare >= 0.8; }),
+              { label: "steamed foam", want: 3, get: function (st) { return st.froth; } }] },
+    { id: "zipf", name: "Zipfian Tail", ask: "a tall glass with one heavy hitter and a long tail",
+      hint: "Zipf: a few words are very frequent, most occur once",
+      needs: [nStyle("glass"), nIs("40+ words", function (st) { return st.tokens >= 40; }),
+              nIs("top word appears 3+ times", function (st) { return st.top >= 3; }),
+              nIs("half the types are hapaxes", function (st) { return st.types > 0 && st.hapaxShare >= 0.5; })] },
+    { id: "sundae", name: "Kaomoji Sundae", ask: "something rainbow-fresh, whipped, cherry on top",
+      needs: [nSrc("magic-moji", 12, "MAGIC MOJI"), nSrc("whip", 3, "whipped cream"), nSrc("cherry", 1, "cherry")] },
+    { id: "affogato", name: "Punctuation Affogato", ask: "freshly ground punctuation, drowned in a shot of Dante",
+      hint: "hold the KOFEMOLKA button over a cup",
+      needs: [nSrc("grind", 8, "punctuation"), nSrc("dante", 6, "Dante")] },
+    { id: "balanced", name: "Balanced Corpus", ask: "a balanced corpus: four fountain sources, none over 40%",
+      hint: "sample widely; no single genre gets to dominate",
+      needs: [nIs("4+ fountain corpora (4+ each)", function (st) {
+                return SODA_KEYS.filter(function (k) { return (st.src[k] || 0) >= 4; }).length >= 4;
+              }),
+              nIs("no source over 40%", function (st) {
+                var total = sumOf(st, SODA_KEYS);
+                return total > 0 && SODA_KEYS.every(function (k) { return (st.src[k] || 0) <= total * 0.4; });
+              })] },
+    { id: "rackham", name: "Rackham Chai", ask: "a mug of Cicero in English translation, dusted with cinnamon",
+      hint: "UBE pours Rackham's 1914 translation · the CINN shaker is on the shelf",
+      needs: [nStyle("gmug"), nSrc("ube", 10, "UBE"), nSrc("cinn", 4, "cinnamon")] }
+  ];
+  function recipeById(id) { return RECIPES.filter(function (r) { return r.id === id; })[0]; }
+  function scoreRecipe(r, st) {
+    var met = 0;
+    var rows = r.needs.map(function (n) {
+      var have = n.get(st), ok = have >= n.want;
+      if (ok) met++;
+      return { label: n.label, have: have, want: n.want, bool: !!n.bool || n.want === 1, ok: ok };
+    });
+    return { rows: rows, met: met, all: met === r.needs.length };
+  }
+
+  var CUSTOMERS = [
+    { who: "a sleepy lexicographer", skin: "#f1c7a5", hair: "#6b4a33" },
+    { who: "a phonologist in a cardigan", skin: "#c98f65", hair: "#2b2633" },
+    { who: "a corpus linguist", skin: "#e8b48f", hair: "#d99a2b" },
+    { who: "a syntactician with a tote bag", skin: "#8d5a3b", hair: "#1f1a24" },
+    { who: "a field linguist back from fieldwork", skin: "#d9a57c", hair: "#a8683a" },
+    { who: "a first-year grad student", skin: "#f4d2b8", hair: "#c94f6d" },
+    { who: "a retired typologist", skin: "#e2b797", hair: "#d7dbe2" },
+    { who: "a computational linguist", skin: "#b57a54", hair: "#3f9e57" },
+    { who: "a sociolinguist", skin: "#f0c09a", hair: "#4a2a73" },
+    { who: "two semanticists sharing a cup", skin: "#c68b62", hair: "#64aef0", pl: true },
+    { who: "the department cat", skin: "#ff9f43", hair: "#ff9f43", cat: true }
+  ];
+  var REACT = {
+    all: ["Perfect. This is going in my acknowledgments.", "Exactly what I ordered. Inter-annotator agreement: 1.0.",
+          "Oh, that's lovely. Well-formed and everything.", "Chef's kiss. Grammatical in every dialect."],
+    some: ["Close enough. It's all annotation guidelines anyway.", "Mm, a near synonym. I'll take it.",
+           "Not quite what I asked for, but a fascinating variant."],
+    none: ["Interesting! I'll call it a corpus of one.", "A bold reading of my order. Thank you!",
+           "I'm going to write a paper about this drink."]
+  };
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+  var ORDER = { recipe: null, cust: null, state: "idle", t: null, last: null, count: 0 };
+  var lastTicketFrame = -99;
+  var focusVessel = null, orderDirty = true;
+  function isDrinkable(v) { return v && v.style !== "porta" && v.style !== "tamper"; }
+  // The ticket checks the cup you are working on: the one you last touched,
+  // or else whichever cup is being filled. Another tap pouring into a second
+  // cup does not steal focus while the focused cup is still filling.
+  function noteFill(v, touched) {
+    if (!isDrinkable(v)) return;
+    if (touched) { focusVessel = v; v.touchedAt = frame; }
+    else {
+      v.filledAt = frame;
+      var f = focusVessel;
+      var busy = f && f !== v && (f.dragging || frame - (f.filledAt || -1e9) < 150 ||
+                                  frame - (f.touchedAt || -1e9) < 600);
+      if (!busy) focusVessel = v;
+    }
+    orderDirty = true;
+  }
+
+  var orderEl = document.getElementById("pc-order");
+  var orderChip = document.getElementById("pc-order-chip");
+  var whoEl = document.getElementById("pc-who");
+  var askEl = document.getElementById("pc-ask");
+  var needsEl = document.getElementById("pc-needs");
+  var footEl = document.getElementById("pc-order-foot");
+  var serveBtn = document.getElementById("pc-serve");
+  var skipBtn = document.getElementById("pc-skip");
+  var minBtn = document.getElementById("pc-order-min");
+  var tipsEl = document.getElementById("pc-tips");
+  var avatar = document.getElementById("pc-avatar");
+  var menuBtn = document.getElementById("pc-menu");
+  var menuPanel = document.getElementById("pc-menu-panel");
+  var toastEl = document.getElementById("pc-toast");
+
+  function overTicket(e) {
+    if (!orderEl || orderEl.hidden || e.clientX == null) return false;
+    var r = orderEl.getBoundingClientRect();
+    return e.clientX >= r.left - 8 && e.clientX <= r.right + 8 && e.clientY >= r.top - 8 && e.clientY <= r.bottom + 8;
+  }
+  function hoverTicket(on) { if (orderEl) orderEl.classList.toggle("pc-order-hot", !!on); }
+
+  function drawAvatar(c, mood) {
+    if (!avatar) return;
+    var a = avatar.getContext("2d");
+    a.clearRect(0, 0, 16, 16);
+    function p(x, y, w, h, col) { a.fillStyle = col; a.fillRect(x, y, w, h); }
+    if (!c) return;
+    if (c.cat) {
+      p(3, 3, 2, 3, c.skin); p(11, 3, 2, 3, c.skin);           // ears
+      p(3, 5, 10, 8, c.skin); p(4, 13, 8, 1, c.skin);
+      p(5, 8, 2, 2, OUT); p(9, 8, 2, 2, OUT); p(7, 11, 2, 1, "#c2255c");
+      p(1, 10, 3, 1, OUT); p(12, 10, 3, 1, OUT);
+    } else {
+      p(3, 1, 10, 4, c.hair); p(2, 3, 2, 6, c.hair); p(12, 3, 2, 6, c.hair);
+      p(4, 4, 8, 9, c.skin); p(5, 13, 6, 1, c.skin);
+      p(5, 7, 2, 2, OUT); p(9, 7, 2, 2, OUT);
+      if (mood === "joy") { p(5, 11, 6, 1, OUT); p(4, 10, 1, 1, OUT); p(11, 10, 1, 1, OUT); }
+      else p(6, 11, 4, 1, OUT);
+      p(3, 9, 2, 1, "#ffb3c7"); p(11, 9, 2, 1, "#ffb3c7");
+      p(1, 14, 14, 2, "#f2668b");                              // sweater
+    }
+  }
+  function renderTips() {
+    if (tipsEl) tipsEl.textContent = SAVE.tips + "¢";
+    if (menuBtn) {
+      var n = RECIPES.filter(function (r) { return SAVE.found[r.id]; }).length;
+      menuBtn.textContent = "☰ menu " + n + "/" + RECIPES.length;
+    }
+  }
+  function renderMenu() {
+    if (!menuPanel) return;
+    var list = menuPanel.querySelector("ol");
+    list.innerHTML = "";
+    RECIPES.forEach(function (r) {
+      var li = document.createElement("li");
+      var found = SAVE.found[r.id];
+      var h = document.createElement("b");
+      h.textContent = found ? r.name + (found > 1 ? "  ×" + found : "") : "???";
+      var ask = document.createElement("div");
+      ask.className = "pc-menu-ask";
+      ask.textContent = "“" + r.ask + "”";
+      li.appendChild(h); li.appendChild(ask);
+      if (found) {
+        var nd = document.createElement("div");
+        nd.className = "pc-menu-needs";
+        nd.textContent = r.needs.map(function (n) {
+          return n.bool || n.want === 1 ? n.label : n.label + " ×" + n.want;
+        }).join(" · ");
+        li.appendChild(nd);
+        li.className = "pc-found";
+      }
+      list.appendChild(li);
+    });
+  }
+  function toast(msg) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    toastEl.classList.remove("pc-toast-go");
+    void toastEl.offsetWidth;                                  // restart the fade
+    toastEl.classList.add("pc-toast-go");
+    clearTimeout(toast.t);
+    toast.t = setTimeout(function () { toastEl.hidden = true; }, 4200);
+  }
+  function discover(r) {
+    var first = !SAVE.found[r.id];
+    SAVE.found[r.id] = (SAVE.found[r.id] || 0) + 1;
+    saveGame(); renderTips(); renderMenu();
+    if (first) toast("new on the menu: " + r.name);
+    return first;
+  }
+  function discoverFrom(v, onlyRecipe) {
+    if (!isDrinkable(v) || !v.contents.length) return null;
+    var st = drinkStats(v), hit = null;
+    (onlyRecipe ? [onlyRecipe] : RECIPES).forEach(function (r) {
+      if (!hit && scoreRecipe(r, st).all) hit = r;
+    });
+    if (hit && !onlyRecipe) discover(hit);
+    return hit;
+  }
+
+  function nextCustomer(first) {
+    var pool = RECIPES.filter(function (r) { return !SAVE.found[r.id] && r !== ORDER.last; });
+    if (!pool.length) pool = RECIPES.filter(function (r) { return r !== ORDER.last; });
+    ORDER.recipe = first && !SAVE.found.cola ? RECIPES[0] : pick(pool);
+    var custs = CUSTOMERS.filter(function (c) { return c !== ORDER.cust; });
+    ORDER.cust = pick(custs);
+    ORDER.state = "waiting";
+    ORDER.count++;
+    orderDirty = true;
+    renderOrder();
+  }
+  function renderOrder() {
+    if (!orderEl) return;
+    orderEl.classList.toggle("pc-order-done", ORDER.state !== "waiting");
+    if (ORDER.state === "quiet") {
+      drawAvatar(null);
+      whoEl.textContent = "the café is quiet";
+      askEl.textContent = "someone’s coming up the street…";
+      needsEl.innerHTML = "";
+      footEl.textContent = "";
+      serveBtn.hidden = true; skipBtn.hidden = true;
+      return;
+    }
+    if (ORDER.state === "waiting") {
+      drawAvatar(ORDER.cust, "smile");
+      whoEl.textContent = ORDER.cust.who + " would like";
+      askEl.textContent = "“" + ORDER.recipe.ask + "”";
+      serveBtn.hidden = false; skipBtn.hidden = false;
+      updateTicket(true);
+    }
+  }
+  function updateTicket(force) {
+    if (!orderEl || ORDER.state !== "waiting" || (!orderDirty && !force)) return;
+    orderDirty = false;
+    var v = focusVessel && focusVessel.contents.length ? focusVessel : null;
+    var st = v ? drinkStats(v) : { style: null, src: {}, froth: 0, tokens: 0, types: 0, hapax: 0, top: 0, hapaxShare: 0 };
+    var sc = scoreRecipe(ORDER.recipe, st);
+    var html = sc.rows.map(function (row) {
+      var txt = row.bool ? row.label : row.label + " " + Math.min(row.have, row.want) + "/" + row.want;
+      return '<li class="' + (row.ok ? "pc-ok" : "") + '">' + (row.ok ? "✓ " : "· ") +
+        txt.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>";
+    }).join("");
+    if (needsEl.innerHTML !== html) needsEl.innerHTML = html;
+    var foot = v ? "checking the " + v.label + " · drag it onto this ticket to serve"
+                 : (ORDER.recipe.hint || "pour into any cup, then drag it onto this ticket");
+    if (v && ORDER.recipe.hint && !sc.met) foot = ORDER.recipe.hint;
+    if (footEl.textContent !== foot) footEl.textContent = foot;
+    serveBtn.disabled = !v;
+    serveBtn.textContent = v ? "serve the " + (STYLE_NAME[v.style] || "cup") : "serve";
+  }
+  function ding(perfect) {
+    // Only when the jazz trio is on: the café never makes sound uninvited.
+    if (!JAZZ.ac || !JAZZ.on) return;
+    var ac = JAZZ.ac, t = ac.currentTime + 0.02;
+    (perfect ? [1318.5, 1760] : [1318.5]).forEach(function (f, i) {
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.06, t + i * 0.12 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.12 + 0.9);
+      o.connect(g); g.connect(JAZZ.master);
+      o.start(t + i * 0.12); o.stop(t + i * 0.12 + 1);
+    });
+  }
+  function serveVessel(v) {
+    if (ORDER.state !== "waiting" || !isDrinkable(v) || !v.contents.length) return;
+    var r = ORDER.recipe, st = drinkStats(v), sc = scoreRecipe(r, st);
+    var tip = Math.max(1, sc.met + (sc.all ? 3 : 0));
+    SAVE.tips += tip; saveGame();
+    for (var i = 0; i < Math.min(8, tip + 2); i++) {           // coins float up out of the cup
+      particles.push({ ch: i % 3 ? "¢" : "✧", color: i % 3 ? "#e6a700" : "#fff2a8",
+        x: v.x + v.bodyX + v.bodyW / 2 + (i - 3) * 12, y: vRim(v) - 6,
+        vx: (Math.random() - 0.5) * 0.6, vy: -0.9 - Math.random() * 0.6, g: 0, rise: true,
+        alpha: 1, fade: 0.012, bounced: false, slurp: false, sprite: null, scale: 1,
+        word: false, big: true, cream: false });
+    }
+    var fresh = sc.all ? discover(r) : false;
+    if (!sc.all) discoverFrom(v, null);                        // they may have invented something else
+    emptyVessel(v);                                            // the customer drinks it
+    root.dispatchEvent(new CustomEvent("cafe:serve", { bubbles: true, detail: {
+      recipe: r.id, met: sc.met, of: r.needs.length, tip: tip } }));
+    console.log("[cafe] served " + r.id + ": " + sc.met + "/" + r.needs.length + " (+" + tip + "¢)");
+    ding(sc.all);
+    ORDER.state = "served"; ORDER.last = r;
+    drawAvatar(ORDER.cust, "joy");
+    // subject-verb agreement, because of course
+    whoEl.textContent = ORDER.cust.who + (sc.all ? (ORDER.cust.pl ? " are delighted" : " is delighted")
+                                                 : (ORDER.cust.pl ? " say" : " says"));
+    askEl.textContent = "“" + pick(sc.all ? REACT.all : sc.met ? REACT.some : REACT.none) + "”";
+    needsEl.innerHTML = "";
+    footEl.textContent = "+" + tip + "¢ in the tip jar" + (fresh ? " · " + r.name + " is on the menu now" : "");
+    serveBtn.hidden = true; skipBtn.hidden = true;
+    renderTips();
+    orderEl.classList.add("pc-order-done");
+    clearTimeout(ORDER.t);
+    ORDER.t = setTimeout(function () {
+      ORDER.state = "quiet"; renderOrder();
+      ORDER.t = setTimeout(function () { nextCustomer(false); }, 3500);
+    }, 4200);
+  }
+  if (orderEl) {
+    serveBtn.addEventListener("click", function () { if (focusVessel) serveVessel(focusVessel); });
+    skipBtn.addEventListener("click", function () {
+      clearTimeout(ORDER.t);
+      ORDER.last = ORDER.recipe;
+      nextCustomer(false);
+    });
+    var setMin = function (min) {
+      orderEl.hidden = !!min;
+      orderChip.hidden = !min;
+      SAVE.min = !!min; saveGame();
+    };
+    minBtn.addEventListener("click", function () { setMin(true); });
+    orderChip.addEventListener("click", function () { setMin(false); });
+    setMin(!!SAVE.min);
+    nextCustomer(true);
+  }
+  if (menuBtn && menuPanel) {
+    menuBtn.addEventListener("click", function () {
+      var open = menuPanel.hidden;
+      if (open) { renderMenu(); if (aboutPanel) { aboutPanel.hidden = true; infoBtn.setAttribute("aria-expanded", "false"); } }
+      menuPanel.hidden = !open;
+      menuBtn.setAttribute("aria-expanded", String(open));
+    });
+  }
+  renderTips();
+
   // ---------------- ambient cuteness ----------------
   if (!reduceMotion) {
     // idle ambience: advance the world clock a little so blinks, sparkles,
@@ -2586,6 +3646,7 @@
   if (infoBtn && aboutPanel) {
     infoBtn.addEventListener("click", function () {
       var open = aboutPanel.hidden;
+      if (open && menuPanel) { menuPanel.hidden = true; if (menuBtn) menuBtn.setAttribute("aria-expanded", "false"); }
       aboutPanel.hidden = !open;
       infoBtn.setAttribute("aria-expanded", String(open));
     });
@@ -2626,6 +3687,9 @@
   }
   function jazzSchedule() {
     var ac = JAZZ.ac;
+    // Background tabs throttle timers to ~1s; without this the missed beats
+    // would all be scheduled in the past and play at once as a clang.
+    if (JAZZ.next < ac.currentTime + 0.02) JAZZ.next = ac.currentTime + 0.06;
     while (JAZZ.next < ac.currentTime + 0.9) {
       var bar = JAZZ_BARS[Math.floor(JAZZ.beat / 4) % JAZZ_BARS.length];
       var bi = JAZZ.beat % 4;
@@ -2656,6 +3720,7 @@
       JAZZ.ac.resume();
       JAZZ.next = JAZZ.ac.currentTime + 0.1;
       JAZZ.beat = 0;
+      clearInterval(JAZZ.timer);
       JAZZ.timer = setInterval(jazzSchedule, 250);
       JAZZ.on = true;
       if (jazzBtn) { jazzBtn.textContent = "\u266a jazz: on"; jazzBtn.setAttribute("aria-pressed", "true"); }
@@ -2670,8 +3735,21 @@
   }
   if (jazzBtn) jazzBtn.addEventListener("click", jazzToggle);
 
+  // Let everything come to rest before the first paint: a few loose things
+  // (demitasses, the portafilter) start slightly off their ledges, and would
+  // otherwise visibly drop on the first interaction.
+  for (var settleStep = 0; settleStep < 240; settleStep++) step();
+  buttonsDirty = true;
+
+  // #debug exposes a read-only peek for automated checks
+  if (/debug/.test(location.hash)) {
+    window.cafeDebug = { vessels: VESSELS, stats: drinkStats, corpora: CORPORA,
+                         particles: function () { return particles.length; },
+                         held: function () { return { id: HELD && HELD.id, pouring: heldPouring }; } };
+  }
+
   // demo mode for screenshots: #demo pours a few taps hands-free
-  if (location.hash === "#demo") {
+  if (/^#demo/.test(location.hash)) {
     // screenshot mode: pour a few taps and advance the world synchronously
     VESSELS[0].x = 62;                         // park the big cup under COCA
     VESSELS[1].x = 950;                        // clear glass under MAGIC MOJI
@@ -2681,8 +3759,15 @@
     pressedKeys["udhr-ja"] = true;
     pressedKeys["grind"] = true;
     pressedKeys["ice"] = true;
-    espresso.shotL = 250; espresso.shotR = 230;
+    // a real tamped puck in group 1, a demitasse under it, then pull the shot
+    for (var gi = 0; gi < 10; gi++) addChar(PORTAFILTER, ".", "#6b4a33", { src: "grind" });
+    PORTAFILTER.tamped = true;
+    PORTAFILTER.mountedGroup = 1;
+    var demiCup = VESSELS.filter(function (v) { return v.id === "demi"; })[0];
+    demiCup.x = Math.round(espresso.x + 55 * espresso.scale - demiCup.bodyX - demiCup.bodyW / 2);
+    espresso.shotL = 250;
     for (var demoStep = 0; demoStep < 400; demoStep++) step();
+    noteFill(VESSELS[0], true);                  // the ticket checks the COCA cup
   }
 
   draw();
