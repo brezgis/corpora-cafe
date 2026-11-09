@@ -14,24 +14,16 @@ Dante. The tea urns hold the Universal Declaration of Human Rights in three
 languages, steeping as visible tokens. Everything you pour falls as words,
 collapses into characters when it lands in a glass, and stacks into a drink
 you can garnish, steam, slurp — or spill, and then mop up with the rag from
-the SANI bucket. Linguists wander up to the counter and order drinks in
-linguistic terms; serve them well and the recipe goes up on the menu board.
+the SANI bucket. There are no instructions; poke at things.
 
 ## Quickstart
 
 Open `index.html` in a browser. That's it — no build, no dependencies, no
 network requests. (Or serve the folder with any static server.)
 
-- **Hold a lever / button** to pour
-- **Click** a syrup, shaker, or milk carton to pick it up; **press and hold**
-  to pour it (it tips over); quick-click to set it down
-- **Drag** cups anywhere — they fall, land, and slosh
-- **Double-click** (or double-tap) a cup with something in it to drink it
-- **Press the espresso button and wait** — the pump primes, then the shot pulls
-- **Grab** garnishes and straws from their trays and drop them into drinks
-- Scroll sideways (any mouse wheel works): the counter is long
-- **Drag a cup onto the order ticket** to serve it to the waiting customer
-- `♪ jazz` in the corner starts a little café trio generated live in your browser
+`♪ jazz` in the corner starts a little brushed piano trio — comping in
+rootless voicings, a walking bass, brushes — generated live in your browser
+with Web Audio. `ⓘ` has the credits.
 
 ## On tap
 
@@ -53,23 +45,6 @@ Every dispenser keeps pouring from where it left off: sampled corpora
 shuffle their sentences (none repeats until the whole bag has poured),
 continuous texts run in order.
 
-## Customers
-
-A linguist walks up and leaves an order ticket on the counter front, in
-linguistic terms: *"a tall glass of hypernyms, with a twist"*, *"a demitasse
-of hendecasyllables, pulled hot"*, *"a lexically diverse latte, extra
-hapax"*. The ticket checks whichever cup you're working on (a pink arrow
-marks it) and ticks off each part as you pour: the corpus, the vessel, ice,
-garnish, foam, even the drink's type/token statistics (hapax legomena, a
-Zipfian head and tail). Drag the cup onto the ticket to hand it over.
-
-There are no timers and no wrong answers. Every drink earns a tip for the
-jar; a perfect one puts that recipe's name on the **☰ menu** board (drinking
-a matching drink yourself counts too). Fifteen recipes, from a Contemporary
-Cola to the Selva Oscura, which needs the whole grind, tamp, mount, pull
-espresso ritual. Tips and discoveries are remembered in your browser. The
-`–` on the ticket tucks it away if you'd rather just pour.
-
 ## More of the room
 
 ![The SMOL two-group espresso machine with demitasses and a spilled shot](screenshots/shot-espresso.png)
@@ -77,6 +52,10 @@ espresso ritual. Tips and discoveries are remembered in your browser. The
 ![Transparent tea urns full of steeping UDHR tokens, pouring through the riser](screenshots/shot-urns.png)
 
 ![The whole counter](screenshots/shot-full.png)
+
+Everything is drawn at your screen's real pixel density, with the pixel art
+snapped to whole device pixels, and the physics runs at a fixed 60 steps a
+second whatever your display's refresh rate.
 
 The backsplash is a real museum piece: [*Tile with 'Saz' Leaf Design*](https://www.metmuseum.org/art/collection/search/452854),
 Iznik, ca. 1545–55, from The Met's open-access collection (public domain).
