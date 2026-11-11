@@ -18,12 +18,16 @@ the SANI bucket. There are no instructions; poke at things.
 
 ## Quickstart
 
-Open `index.html` in a browser. That's it — no build, no dependencies, no
-network requests. (Or serve the folder with any static server.)
+Open `index.html` in a browser. There is no build step, there are no
+dependencies, and nothing is requested from any other server. You can also
+serve the folder with any static server.
 
-`♪ jazz` in the corner starts a little brushed piano trio — comping in
-rootless voicings, a walking bass, brushes — generated live in your browser
-with Web Audio. `ⓘ` has the credits.
+`♪ jazz` in the corner puts on a shuffled stack of real recordings from the
+`music/` folder, and `»` skips to the next one. The name of the track that is
+playing appears beside the chips and links to its source. Nothing in `music/`
+is downloaded until you press the chip. If the recordings cannot load, a little
+brushed piano trio plays instead, generated live in your browser with Web
+Audio. `ⓘ` has the credits.
 
 ## On tap
 
@@ -59,6 +63,29 @@ second whatever your display's refresh rate.
 
 The backsplash is a real museum piece: [*Tile with 'Saz' Leaf Design*](https://www.metmuseum.org/art/collection/search/452854),
 Iznik, ca. 1545–55, from The Met's open-access collection (public domain).
+
+## Music
+
+The café plays nine recordings that are either in the public domain or
+released under licenses that allow them to be hosted here. Every file in
+`music/` was re-encoded to MP3 and levelled to a common volume. "Stardust"
+was also trimmed at both ends to remove the applause, and "On the Alamo" was
+band-limited to soften the surface noise of the 78. Nothing else was changed.
+
+| Track | Artist | Source | License |
+|---|---|---|---|
+| Jazz Brunch | Kevin MacLeod | [incompetech.com](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700074) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Bossa Antigua | Kevin MacLeod | [incompetech.com](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700069) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Backbay Lounge | Kevin MacLeod | [incompetech.com](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700068) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Lobby Time | Kevin MacLeod | [incompetech.com](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600054) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| 2 (jazz), from *Busted Guitar (JAZZ)* | HoliznaCC0 | [Free Music Archive](https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/2-jazz/) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| 4 (jazz), from *Busted Guitar (JAZZ)* | HoliznaCC0 | [Free Music Archive](https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/4-jazz/) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| You da Bossa, from *Jazz Hop* | Ketsa | [Free Music Archive](https://freemusicarchive.org/music/Ketsa/jazz-hop-1/you-da-bossa/) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Stardust, from *Live at Blues Alley* | U.S. Army Blues | [Free Music Archive](https://freemusicarchive.org/music/US_Army_Blues/Live_At_Blues_Alley/0_-_05_-_The_US_Army_Blues_-_Stardust/) | Public domain ([Public Domain Mark 1.0](https://creativecommons.org/publicdomain/mark/1.0/)). The recording is a work of the United States Army, and Hoagy Carmichael's 1927 composition is out of copyright in the United States. |
+| On the Alamo (Victor 18931, recorded 17 July 1922) | Benson Orchestra of Chicago | [Library of Congress National Jukebox, by way of the Internet Archive](https://archive.org/details/loc-jukebox-63520-on-the-alamo) | Public domain in the United States. Sound recordings published before 1926 have left copyright under the Music Modernization Act, and Isham Jones's 1922 composition has as well. |
+
+The MIT license below covers the code and does not cover the files in `music/`,
+which keep the terms listed in this table.
 
 ## License
 

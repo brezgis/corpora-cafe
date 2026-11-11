@@ -85,11 +85,25 @@
   .pc-move:active, .pc-holding, .pc-holding .pc-hit { cursor: grabbing; }
   .pc-holding .pc-hit { pointer-events: none; }
 
-  /* two quiet corner chips: the café trio and the credits */
+  /* quiet corner chips: the café records and the credits */
   .pc-ui {
     position: fixed; right: 10px; bottom: 10px; z-index: 40;
-    display: flex; gap: 6px;
+    display: flex; gap: 6px; align-items: center;
+    max-width: calc(100vw - 20px);
   }
+  .pc-chip { flex: none; }
+  /* what the café is playing: a plain line of type that links to its source */
+  .pc-now {
+    flex: 0 1 auto; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font: bold 11px/1 ui-monospace, "Courier New", monospace;
+    color: #3b2a4a; text-decoration: none;
+    background: rgba(255,253,250,.82); padding: 5px 7px;
+    border: 2px solid transparent;
+    opacity: .72; transition: opacity .15s;
+  }
+  .pc-now[hidden] { display: none; }
+  a.pc-now:hover, a.pc-now:focus-visible { opacity: 1; text-decoration: underline; }
   .pc-chip {
     font: bold 11px/1 ui-monospace, "Courier New", monospace;
     background: rgba(255,253,250,.82); color: #3b2a4a;
@@ -114,7 +128,7 @@
   .pc-panel ul { margin: 4px 0; padding-left: 18px; }
   .pc-panel a { color: #c2255c; }
   .pc-panel p { margin: 6px 0; }
-  @media (prefers-reduced-motion: reduce) { .pc-chip { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .pc-chip, .pc-now { transition: none; } }
 </style>
 </head>
 <body>
@@ -126,6 +140,8 @@
 </div>
 
 <div class="pc-ui">
+  <a id="pc-now" class="pc-now" target="_blank" rel="noopener" aria-live="polite" hidden></a>
+  <button id="pc-next" class="pc-chip" type="button" aria-label="Next track" title="Next track" hidden>»</button>
   <button id="pc-jazz" class="pc-chip" type="button" aria-pressed="false">♪ jazz</button>
   <button id="pc-info" class="pc-chip" type="button" aria-expanded="false" aria-controls="pc-about" aria-label="About">ⓘ</button>
 </div>
@@ -149,8 +165,13 @@
   <h4>the room</h4>
   <ul>
     <li>backsplash — <a href="https://www.metmuseum.org/art/collection/search/452854" target="_blank" rel="noopener">Tile with 'Saz' Leaf Design</a>, Iznik, ca. 1545–55, The Met (public domain)</li>
-    <li>jazz — a brushed piano trio generated live in your browser, no recordings were harmed</li>
   </ul>
+  <h4>the music</h4>
+  <p>The ♪ jazz chip puts on a shuffled stack of real recordings, and » skips to the next one.
+  Each track was re-encoded to MP3 and levelled in volume. Stardust was also trimmed to leave out the applause,
+  and On the Alamo was filtered to soften the surface noise of the 78.</p>
+  <ul id="pc-tracks"></ul>
+  <p>If the recordings cannot load, a little brushed piano trio plays instead, generated live in your browser.</p>
   <p style="opacity:.7">a <a href="https://brezgis.github.io" target="_blank" rel="noopener">sharabara</a> production ♡</p>
 </div>
 
@@ -3521,10 +3542,151 @@
       if (!JAZZ.on) ac.suspend();
     }, 2000);
   }
+
+  // ---------------- café records ----------------
+  // Real recordings, played from ./music in a shuffled order that never
+  // repeats a track until the whole stack has played. Nothing is fetched
+  // until the first click on the chip, and that same click is the user
+  // gesture browsers require before audio may start. If the files cannot
+  // load (index.html saved on its own, say), the generated trio above takes over.
+  var TRACKS = [
+    { file: "jazz-brunch", title: "Jazz Brunch", artist: "Kevin MacLeod",
+      url: "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700074",
+      license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/" },
+    { file: "bossa-antigua", title: "Bossa Antigua", artist: "Kevin MacLeod",
+      url: "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700069",
+      license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/" },
+    { file: "backbay-lounge", title: "Backbay Lounge", artist: "Kevin MacLeod",
+      url: "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700068",
+      license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/" },
+    { file: "lobby-time", title: "Lobby Time", artist: "Kevin MacLeod",
+      url: "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600054",
+      license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/" },
+    { file: "busted-guitar-2", title: "2 (jazz)", artist: "HoliznaCC0",
+      url: "https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/2-jazz/",
+      license: "CC0 1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { file: "busted-guitar-4", title: "4 (jazz)", artist: "HoliznaCC0",
+      url: "https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/4-jazz/",
+      license: "CC0 1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { file: "you-da-bossa", title: "You da Bossa", artist: "Ketsa",
+      url: "https://freemusicarchive.org/music/Ketsa/jazz-hop-1/you-da-bossa/",
+      license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/" },
+    { file: "stardust", title: "Stardust", artist: "U.S. Army Blues",
+      url: "https://freemusicarchive.org/music/US_Army_Blues/Live_At_Blues_Alley/0_-_05_-_The_US_Army_Blues_-_Stardust/",
+      license: "public domain", licenseUrl: "https://creativecommons.org/publicdomain/mark/1.0/" },
+    { file: "on-the-alamo", title: "On the Alamo (1922)", artist: "Benson Orchestra of Chicago",
+      url: "https://archive.org/details/loc-jukebox-63520-on-the-alamo",
+      license: "public domain", licenseUrl: "https://creativecommons.org/publicdomain/mark/1.0/" }
+  ];
+  var MUSIC_VOLUME = 0.8;
+  var nowEl = document.getElementById("pc-now"), nextBtn = document.getElementById("pc-next");
+  var MUSIC = { el: null, on: false, order: [], at: -1, track: null, fails: 0, synth: false, fade: 0 };
+
+  (function listTracks() {                     // the credits panel reads from the same list
+    var ul = document.getElementById("pc-tracks");
+    TRACKS.forEach(function (tr) {
+      var li = document.createElement("li"), a = document.createElement("a"), l = document.createElement("a");
+      a.href = tr.url; a.textContent = tr.title;
+      l.href = tr.licenseUrl; l.textContent = tr.license;
+      a.target = l.target = "_blank"; a.rel = l.rel = "noopener";
+      li.appendChild(a); li.appendChild(document.createTextNode(" by " + tr.artist + ", "));
+      li.appendChild(l); ul.appendChild(li);
+    });
+  })();
+
+  function musicShuffle(avoid) {               // Fisher–Yates; a new stack never opens with the track that just ended
+    var order = TRACKS.map(function (_, i) { return i; });
+    for (var i = order.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)), t = order[i];
+      order[i] = order[j]; order[j] = t;
+    }
+    if (order.length > 1 && order[0] === avoid) { order[0] = order[order.length - 1]; order[order.length - 1] = avoid; }
+    return order;
+  }
+  function musicFade(to, ms, done) {           // a short volume ramp, so starting and stopping never click
+    var el = MUSIC.el, from = el.volume, t0 = performance.now();
+    clearInterval(MUSIC.fade);
+    MUSIC.fade = setInterval(function () {
+      var k = Math.min(1, (performance.now() - t0) / ms);
+      el.volume = from + (to - from) * k;
+      if (k === 1) { clearInterval(MUSIC.fade); if (done) done(); }
+    }, 30);
+  }
+  function musicShow(tr) {
+    MUSIC.track = tr;
+    if (tr) {
+      nowEl.textContent = tr.title + " · " + tr.artist;
+      nowEl.href = tr.url;
+      nowEl.title = "Now playing: " + tr.title + " by " + tr.artist + " (" + tr.license + ")";
+    } else {
+      nowEl.textContent = "house trio, live";
+      nowEl.removeAttribute("href");
+      nowEl.title = "The recordings could not load, so a generated piano trio is playing.";
+    }
+    nowEl.hidden = !MUSIC.on;
+    nextBtn.hidden = !MUSIC.on || !tr;
+    if (tr && navigator.mediaSession && window.MediaMetadata) {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: tr.title, artist: tr.artist, album: "corpora-cafe" });
+    }
+  }
+  function musicPlay() {
+    var p = MUSIC.el.play();
+    if (p && p.catch) p.catch(function () {});   // a failed load reports through the error event instead
+  }
+  function musicNext() {
+    var current = MUSIC.at >= 0 ? MUSIC.order[MUSIC.at] : -1;
+    MUSIC.at++;
+    if (MUSIC.at >= MUSIC.order.length) { MUSIC.order = musicShuffle(current); MUSIC.at = 0; }
+    var tr = TRACKS[MUSIC.order[MUSIC.at]];
+    clearInterval(MUSIC.fade);
+    MUSIC.el.src = "music/" + tr.file + ".mp3";
+    MUSIC.el.volume = MUSIC_VOLUME;
+    musicShow(tr);
+    musicPlay();
+  }
+  function musicFallback() {                   // no recordings to be had: the generated trio plays
+    MUSIC.synth = true;
+    MUSIC.el.removeAttribute("src");
+    if (MUSIC.on) { musicShow(null); jazzStart(); }
+  }
+  function musicStart() {
+    MUSIC.on = true;
+    if (MUSIC.synth) { musicShow(null); jazzStart(); return; }
+    if (!MUSIC.el) {
+      var el = MUSIC.el = new Audio();
+      el.preload = "auto";
+      el.addEventListener("ended", function () { if (MUSIC.on) musicNext(); });
+      el.addEventListener("playing", function () { MUSIC.fails = 0; });
+      el.addEventListener("error", function () {
+        if (!el.getAttribute("src")) return;
+        if (++MUSIC.fails >= 2) musicFallback();
+        else if (MUSIC.on) musicNext();
+      });
+      if (navigator.mediaSession) {
+        try { navigator.mediaSession.setActionHandler("nexttrack", function () { if (MUSIC.on && !MUSIC.synth) musicNext(); }); } catch (e) {}
+      }
+      musicNext();                             // called inside the click, as autoplay rules require
+      return;
+    }
+    musicShow(MUSIC.track);                    // resume the record where it was lifted
+    MUSIC.el.volume = 0;
+    musicPlay();
+    musicFade(MUSIC_VOLUME, 400);
+  }
+  function musicStop() {
+    MUSIC.on = false;
+    nowEl.hidden = true; nextBtn.hidden = true;
+    if (JAZZ.on) jazzStop();
+    if (MUSIC.el && !MUSIC.synth) {
+      var el = MUSIC.el;
+      musicFade(0, 350, function () { if (!MUSIC.on) el.pause(); });
+    }
+  }
   jazzBtn.addEventListener("click", function () {
-    if (JAZZ.on) jazzStop(); else jazzStart();
-    jazzBtn.setAttribute("aria-pressed", String(JAZZ.on));
+    if (MUSIC.on) musicStop(); else musicStart();
+    jazzBtn.setAttribute("aria-pressed", String(MUSIC.on));
   });
+  nextBtn.addEventListener("click", function () { if (MUSIC.on && !MUSIC.synth) musicNext(); });
 
   // Let everything come to rest before the first paint: a few loose things
   // (demitasses, the portafilter) start slightly off their ledges, and would
@@ -3541,6 +3703,7 @@
                          held: function () { return { id: HELD && HELD.id, pouring: heldPouring }; },
                          scale: function () { return { S: S, DPR: DPR, TX: TX }; },
                          jazz: JAZZ, jazzMix: jazzMix, createTrio: createTrio,
+                         music: MUSIC, tracks: TRACKS,
                          // render the trio offline: (ctx) => scheduled bar count
                          renderJazz: function (ac, bars) {
                            var mix = jazzMix(ac); mix.output.connect(ac.destination);
